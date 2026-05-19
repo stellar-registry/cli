@@ -1,27 +1,25 @@
 [workspace]
 resolver = "2"
 default-members = ["crates/*"]
-members = [
-    "crates/*",
-    "contracts/registry",
-    "contracts/test/*",
-    "crates/stellar-scaffold-test/fixtures/contracts/*",
-]
+members = ["crates/*"]
 
 [workspace.package]
-repository = "https://github.com/theahaco/scaffold-stellar"
+repository = "https://github.com/stellar-registry/cli"
 
 [workspace.dependencies]
-stellar-scaffold-macro = { path = "crates/stellar-scaffold-macro" }
+# Local crates
 stellar-registry = { path = "crates/stellar-registry" }
-stellar-scaffold-test = { path = "crates/stellar-scaffold-test" }
-stellar-scaffold-ext-types = { path = "crates/stellar-scaffold-ext-types", version = "0.0.2" }
+
+# Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
+# git for stellar-scaffold-test which is `publish = false`).
+stellar-build = "0.0.6"
+stellar-scaffold-macro = "0.8.14"
+stellar-scaffold-test = { git = "https://github.com/stellar-scaffold/cli", branch = "main" }
 
 stellar-cli = { version = "26.0.0", package = "soroban-cli", default-features = false }
 soroban-rpc = { package = "stellar-rpc-client", version = "26.0.0-rc.1" }
 soroban-spec-tools = "26.0.0"
 
-soroban-sdk = "25.3.1"
 admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "46ed159ff38ee81f4b61b5ddb8ca4b6bdf972028" }
 stellar-xdr = "=26.0.0"
 stellar-strkey = "0.0.15"
@@ -32,17 +30,6 @@ sha2 = "0.10.9"
 
 clap = "4.6.1"
 reqwest = { version = "0.12.9", default-features = false }
-
-[profile.contracts]
-inherits = "release"
-opt-level = "z"
-overflow-checks = true
-debug = 0
-strip = "symbols"
-debug-assertions = true
-panic = "abort"
-codegen-units = 1
-lto = true
 
 [workspace.lints.clippy]
 result_large_err = "allow"
