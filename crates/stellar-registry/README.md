@@ -72,4 +72,4 @@ import_contract_client!("registry@v1.0.0");
 
 Eventually, this crate will also export an `import_contract!` macro which will allow importing the _contract_ by name, rather than only the _Wasm_ by name. This will simplify the client creation logic shown above.
 
-Follow progress at https://github.com/theahaco/scaffold-stellar/issues/419
+Follow progress at https://github.com/stellar-registry/cli/issues

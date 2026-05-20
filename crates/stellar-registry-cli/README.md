@@ -167,5 +167,5 @@ Publishing and deploying are exactly the same as other networks, except now you 
 
 ## See Also
 
-- [Registry Guide](../../website/docs/registry.md) - Detailed guide on using the registry system
-- [Environment Configuration](../../website/docs/environments.md) - Configuration details for different networks
+- [Registry Guide](https://scaffoldstellar.com/docs/registry) - Detailed guide on using the registry system
+- [Environment Configuration](https://scaffoldstellar.com/docs/environments) - Configuration details for different networks

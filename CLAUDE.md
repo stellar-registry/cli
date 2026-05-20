@@ -57,7 +57,7 @@ just registry <args>    # runs stellar-registry
 ### CLI Command Flow
 
 **stellar-scaffold commands:** init → build → generate → watch
-- `init` - Scaffolds new project from template (uses degit to fetch from scaffold-stellar-frontend repo)
+- `init` - Scaffolds new project from template (uses degit to fetch from the stellar-scaffold/ui repo)
 - `build` - Builds contracts and generates TypeScript clients based on `environments.toml`
 - `generate contract` - Adds new contract to existing project
 - `watch` - Monitors and rebuilds on changes
