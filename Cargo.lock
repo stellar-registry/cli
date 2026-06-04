@@ -4631,7 +4631,7 @@ dependencies = [
 [[package]]
 name = "stellar-scaffold-test"
 version = "0.1.0"
-source = "git+https://github.com/stellar-scaffold/cli?branch=main#75b348146141ce0938b12ff246d75aa23b7c30a4"
+source = "git+https://github.com/stellar-scaffold/cli?branch=main#3379ff1c0c5e4d8de6558f5e2f9a8b7d6fd5e943"
 dependencies = [
  "assert_cmd",
  "assert_fs",
