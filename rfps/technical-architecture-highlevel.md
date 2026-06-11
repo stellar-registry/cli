@@ -157,7 +157,12 @@ flowchart LR
 - lookup by `contract_id` or `wasm_hash` → verification status, recorded SEP-58 fields, build metadata, image-trust signal, per-verifier history, and surfaced disagreement;
 - list / filter / rank queries that on-chain RPC cannot serve — unverified-but-high-activity contracts, all mismatches, results filtered by image-trust level, history over time.
 
-**Variable trust at the endpoint.** Trust policy is applied *here*, at query time, never upstream. A request can pass a trust set (the verifier keys it honors), or hit a named-policy endpoint; the server resolves "verified" against that policy and surfaces divergence rather than collapsing it. Different endpoints can apply different rules to the same underlying facts.
+**Variable trust at the endpoint.** Trust policy is a gradient, not a binary, which is tunable *here*, by consumers at query time. Never upstream. A request can specify its trust parameters in multiple ways:
+
+ - **Trust Set**:  specific verifier keys it honors ("all contracts trusted by Runtime Verification")
+ - **Named Policy**: `sdf_trusted`, say, to return all wasms/contracts trusted by SDF
+ 
+The API returns results that match that policy and surfaces divergence rather than collapsing it. Different endpoints can apply different rules to the same underlying facts.
 
 **Future work — alternative materializers.** The reference path is GoldSky. Because everything downstream is derived from chain events, an independent party could materialize the same events into a self-hosted store (e.g. a SQLite materializer) and serve the same API. This is proposed as future work to pursue if there is demand for fully self-hosted, GoldSky-independent query nodes; it is not required for launch.
 
