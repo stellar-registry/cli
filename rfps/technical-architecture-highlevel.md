@@ -150,7 +150,7 @@ flowchart LR
   Chain -->|events| Mat --> Views --> Ends --> Cons
 ```
 
-**How it gets data.** GoldSky subscribes to the build-info and verification events emitted by the two contracts and materializes them into query-optimized views. For each verification event the pipeline can fetch the off-chain evidence by `evidence_uri` and verify the verifier signature. Because the source of truth is the event log, a view can be rebuilt by replaying history — there is no fragile mutable state to corrupt.
+**How it gets data.** GoldSky subscribes to the build-info and verification events emitted by the two contracts, as well as all wasm uploads with `img`/`src` info, and materializes it all into query-optimized views. For each verification event the pipeline can fetch the off-chain evidence by `evidence_uri` and verify the verifier signature. Because the source of truth is the event log, a view can be rebuilt by replaying history — there is no fragile mutable state to corrupt.
 
 **How it serves data.** Rich endpoints over the materialized views, shaped to conform to the forthcoming verifier-API SEP:
 
