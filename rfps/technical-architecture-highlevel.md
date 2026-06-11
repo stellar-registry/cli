@@ -140,7 +140,7 @@ The read side materializes chain events into queryable views. The reference impl
 
 ```mermaid
 flowchart LR
-  Chain[(Stellar ledger<br/>verification + build-info events)]
+  Chain[(<b>Stellar Ledger</b><br/><br/>build-info, wasm upload,<br/>& verification events)]
   subgraph Node["GoldSky indexer + Query API"]
     Mat["Materialize events<br/>+ fetch evidence_uri<br/>+ verify signatures"]
     Views[(Materialized views)]
