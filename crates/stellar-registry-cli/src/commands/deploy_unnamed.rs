@@ -8,6 +8,7 @@ use stellar_cli::{
     assembled::simulate_and_assemble_transaction,
     commands::contract::invoke,
     config::{self, UnresolvedMuxedAccount},
+    print::Print,
     utils::rpc::get_remote_wasm_from_hash,
     xdr::{self, InvokeContractArgs, ScSpecEntry, ScString, ScVal, Uint256},
 };
@@ -125,12 +126,10 @@ impl Cmd {
         let contract_id = &registry.as_contract().id();
         let spec_entries = self.spec_entries(&registry).await?;
         let (args, signers) =
-            util::find_args_and_signers(contract_id, self.slop.clone(), &spec_entries).await?;
+            util::find_args_and_signers(contract_id, self.slop.clone(), &spec_entries)?;
 
         let deployer = if let Some(deployer) = &self.deployer {
-            deployer
-                .resolve_muxed_account(&self.config.locator, None)
-                .await?
+            deployer.resolve_muxed_account(&self.config.locator, None)?
         } else {
             xdr::MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes()))
         };
@@ -170,10 +169,10 @@ impl Cmd {
         let account_details = client.get_account(&public_strkey).await?;
         let sequence: i64 = account_details.seq_num.into();
         let tx = util::build_invoke_contract_tx(invoke_contract_args, sequence + 1, 100, &key)?;
-        let assembled = simulate_and_assemble_transaction(&client, &tx, None, None).await?;
+        let assembled = simulate_and_assemble_transaction(&client, &tx, None, None, None).await?;
         let mut txn = assembled.transaction().clone();
         txn = config
-            .sign_soroban_authorizations(&txn, &signers)
+            .sign_soroban_authorizations(&txn, &signers, &Print::new(true))
             .await?
             .unwrap_or(txn);
         let return_value = client
@@ -194,7 +193,7 @@ impl Cmd {
 #[cfg(feature = "integration-tests")]
 #[cfg(test)]
 mod tests {
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     #[tokio::test]
     async fn simple() {

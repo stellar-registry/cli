@@ -16,7 +16,7 @@ use stellar_cli::{
 
 use super::Error;
 
-pub async fn find_args_and_signers(
+pub fn find_args_and_signers(
     contract_id: &stellar_strkey::Contract,
     mut slop: Vec<OsString>,
     spec_entries: &[ScSpecEntry],
@@ -30,8 +30,7 @@ pub async fn find_args_and_signers(
         &slop,
         spec_entries,
         &config::Args::default(),
-    )
-    .await;
+    );
     match res {
         Ok((_, _, host_function_params, signers)) => {
             if host_function_params.function_name.len() > 64 {

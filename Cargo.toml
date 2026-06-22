@@ -9,20 +9,21 @@ repository = "https://github.com/stellar-registry/cli"
 [workspace.dependencies]
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
+stellar-registry-test = { path = "crates/stellar-registry-test" }
 
 # Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
 # git for stellar-scaffold-test which is `publish = false`).
 stellar-build = "0.0.6"
 stellar-scaffold-macro = "0.8.14"
-stellar-scaffold-test = { git = "https://github.com/stellar-scaffold/cli", branch = "main" }
 
-stellar-cli = { version = "26.0.0", package = "soroban-cli", default-features = false }
-soroban-rpc = { package = "stellar-rpc-client", version = "26.0.0-rc.1" }
-soroban-spec-tools = "26.0.0"
+stellar-cli = { version = "27.0.0", package = "soroban-cli", default-features = false }
+soroban-rpc = { package = "stellar-rpc-client", version = "27.0.0" }
+soroban-sdk = { version = "27.0.0-rc.1" }
+soroban-spec-tools = "27.0.0"
 
 admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "46ed159ff38ee81f4b61b5ddb8ca4b6bdf972028" }
-stellar-xdr = "=26.0.0"
-stellar-strkey = "0.0.15"
+stellar-xdr = "=27.0.0"
+stellar-strkey = "0.0.16"
 
 cargo_metadata = "0.18.1"
 thiserror = "2.0.17"

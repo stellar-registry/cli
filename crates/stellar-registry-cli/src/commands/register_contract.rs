@@ -42,7 +42,7 @@ impl Cmd {
         let owner = if let Some(owner) = self.owner.clone() {
             owner
         } else {
-            self.config.source_account().await?.to_string()
+            self.config.source_account()?.to_string()
         };
 
         let args = [
@@ -73,7 +73,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use stellar_cli::commands::contract::deploy::wasm;
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     #[tokio::test]
     async fn simple() {

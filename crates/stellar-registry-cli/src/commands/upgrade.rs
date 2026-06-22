@@ -83,7 +83,7 @@ mod tests {
 
     use stellar_cli::commands::{contract::invoke, global};
 
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     use crate::commands::{create_alias, upgrade};
 

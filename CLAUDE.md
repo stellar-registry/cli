@@ -54,7 +54,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 - Unit tests run without external dependencies.
 - Integration tests require a local Stellar RPC (Docker `stellar/quickstart`) and the `integration-tests` feature flag.
-- Command tests use `stellar_scaffold_test::RegistryTest` (the `stellar-scaffold-test` crate, pulled via git from `stellar-scaffold/cli`).
+- Command tests use `stellar_registry_test::RegistryTest`, defined in local crate `crates/stellar-registry-test`
 
 ## Cross-repo dependencies
 

@@ -133,7 +133,7 @@ impl Cmd {
         let author = if let Some(author) = self.author.clone() {
             author
         } else {
-            self.config.source_account().await?.to_string()
+            self.config.source_account()?.to_string()
         };
         args.push(format!("--author={author}"));
         let registry = Registry::new(
@@ -159,7 +159,7 @@ impl Cmd {
 #[cfg(feature = "integration-tests")]
 #[cfg(test)]
 mod tests {
-    use stellar_scaffold_test::{AssertExt, RegistryTest};
+    use stellar_registry_test::{AssertExt, RegistryTest};
 
     #[tokio::test]
     async fn verified() {
