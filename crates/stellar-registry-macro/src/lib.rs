@@ -25,6 +25,21 @@ fn mod_name_from(name_part: &str) -> String {
         .replace('-', "_")
 }
 
+/// A name whose derived module identifier is empty (e.g. `""`, `"foo/"`,
+/// `"@v1.0.0"`) cannot form a valid Rust identifier. Reject it up front so the
+/// macro emits a `compile_error!` instead of panicking inside `Ident::new`.
+fn check_mod_name(mod_name: &str) -> Result<(), String> {
+    if mod_name.is_empty() {
+        Err(
+            "import_contract! needs a contract name whose module identifier is non-empty \
+             (got an empty name, or one like \"foo/\" or \"@v1.0.0\")"
+                .to_string(),
+        )
+    } else {
+        Ok(())
+    }
+}
+
 /// Split `"name@v1.2.3"` / `"name@1.2.3"` into `(name, version-without-leading-v)`.
 fn split_version(raw: &str) -> (String, Option<String>) {
     match raw.split_once('@') {
@@ -199,6 +214,9 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
     } = parse_macro_input!(input as Input);
     let (name_part, _version) = split_version(&name_raw);
     let mod_name = mod_name_from(&name_part);
+    if let Err(msg) = check_mod_name(&mod_name) {
+        return syn::Error::new(name_span, msg).to_compile_error().into();
+    }
     let mod_ident = Ident::new(&mod_name, name_span);
     let evar = env_var_name(&mod_name);
 
@@ -216,7 +234,9 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
         cache,
         no_registry,
         || {
-            let addr = fetch_contract_id(&name_part)?;
+            // Validate before caching so a malformed CLI response can't poison
+            // the .id cache (which is read before re-fetching on later builds).
+            let addr = validate_contract_id(&fetch_contract_id(&name_part)?)?;
             if let Some(p) = &cache_path {
                 let _ = std::fs::write(p, &addr);
             }
@@ -287,6 +307,17 @@ mod helpers {
             cache_id_path(Path::new("target"), "our_dao"),
             Path::new("target/our_dao.id")
         );
+    }
+
+    #[test]
+    fn check_mod_name_rejects_empty_identifiers() {
+        assert!(check_mod_name("our_dao").is_ok());
+        assert!(check_mod_name("").is_err());
+        assert!(check_mod_name(&mod_name_from("foo/")).is_err());
+        // split_version("@v1.0.0") produces ("", Some("v1.0.0")), so mod_name_from("")
+        // returns an empty string.
+        let (name_part, _) = split_version("@v1.0.0");
+        assert!(check_mod_name(&mod_name_from(&name_part)).is_err());
     }
 }
 
