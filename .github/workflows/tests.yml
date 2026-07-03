@@ -38,8 +38,9 @@ jobs:
       - uses: mozilla-actions/sccache-action@v0.0.10
 
       # Integration tests load registry.wasm + hello_v1/v2.wasm from
-      # target/stellar/local. Those contracts live in sibling repos, so build
-      # them here and assemble them into the expected directory.
+      # target/stellar/local. The registry contract lives in a sibling repo;
+      # the hello_v1/v2 fixtures are local (crates/stellar-registry-test/
+      # fixtures/contracts) and build with the CLI. Assemble both into the dir.
       - name: Checkout stellar-registry/contracts
         uses: actions/checkout@v6
         with:
@@ -47,21 +48,16 @@ jobs:
           path: _contracts
       - name: Build registry.wasm
         run: stellar contract build --profile contracts --package registry --manifest-path _contracts/Cargo.toml
-      - name: Checkout stellar-scaffold/cli
-        uses: actions/checkout@v6
-        with:
-          repository: stellar-scaffold/cli
-          path: _scaffold
       - name: Build hello fixtures
         run: |
-          stellar contract build --profile contracts --package hello_v1 --manifest-path _scaffold/Cargo.toml
-          stellar contract build --profile contracts --package hello_v2 --manifest-path _scaffold/Cargo.toml
+          stellar contract build --profile contracts --package hello_v1
+          stellar contract build --profile contracts --package hello_v2
       - name: Assemble test wasms
         run: |
           mkdir -p target/stellar/local
           cp _contracts/target/wasm32v1-none/contracts/registry.wasm target/stellar/local/
-          cp _scaffold/target/wasm32v1-none/contracts/hello_v1.wasm target/stellar/local/
-          cp _scaffold/target/wasm32v1-none/contracts/hello_v2.wasm target/stellar/local/
+          cp target/wasm32v1-none/contracts/hello_v1.wasm target/stellar/local/
+          cp target/wasm32v1-none/contracts/hello_v2.wasm target/stellar/local/
 
       - run: just build
       - name: Create nextest archive

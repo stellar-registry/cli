@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 default-members = ["crates/*"]
-members = ["crates/*"]
+members = ["crates/*", "crates/stellar-registry-test/fixtures/contracts/*"]
 
 [workspace.package]
 repository = "https://github.com/stellar-registry/cli"
@@ -21,7 +21,7 @@ soroban-rpc = { package = "stellar-rpc-client", version = "27.0.0" }
 soroban-sdk = { version = "27.0.0-rc.1" }
 soroban-spec-tools = "27.0.0"
 
-admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "46ed159ff38ee81f4b61b5ddb8ca4b6bdf972028" }
+admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "c4624cc742913a16095084e3149e241405882849" }
 stellar-xdr = "=27.0.0"
 stellar-strkey = "0.0.16"
 
@@ -34,3 +34,14 @@ reqwest = { version = "0.12.9", default-features = false }
 
 [workspace.lints.clippy]
 result_large_err = "allow"
+
+# Size-optimized profile for building test-fixture contracts (hello_v1/v2) to
+# wasm via `stellar contract build --profile contracts`. Mirrors the profile in
+# stellar-registry/contracts so fixtures build the same way as the registry.
+[profile.contracts]
+inherits = "release"
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = true
