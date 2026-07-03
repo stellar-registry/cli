@@ -115,6 +115,61 @@ fn fetch_contract_id(lookup_name: &str) -> Result<String, String> {
     }
 }
 
+use proc_macro2::Span;
+use quote::quote;
+use syn::{
+    Expr, Ident, LitStr, Token,
+    parse::{Parse, ParseStream},
+};
+
+/// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
+/// literal using the same grammar as `import_contract_client!`.
+struct Input {
+    env: Expr,
+    name_raw: String,
+    name_span: Span,
+}
+
+impl Parse for Input {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let env: Expr = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let name_span = input.span();
+        let name_raw = if input.peek(LitStr) {
+            input.parse::<LitStr>()?.value()
+        } else {
+            input.parse::<Ident>()?.to_string()
+        };
+        Ok(Self {
+            env,
+            name_raw,
+            name_span,
+        })
+    }
+}
+
+/// Emit a block expression: delegate wasm/type generation to
+/// `import_contract_client!`, then construct the client bound to the baked
+/// address. `name_raw` is passed through verbatim (version included) so the
+/// delegated macro resolves the matching wasm.
+fn expand(
+    env: &Expr,
+    name_raw: &str,
+    mod_ident: &Ident,
+    address: &str,
+) -> proc_macro2::TokenStream {
+    quote! {
+        {
+            ::stellar_registry::import_contract_client!(#name_raw);
+            let __env: &::soroban_sdk::Env = #env;
+            #mod_ident::Client::new(
+                __env,
+                &::soroban_sdk::Address::from_str(__env, #address),
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod helpers {
     use super::*;
@@ -213,5 +268,51 @@ mod resolution {
     fn fetch_is_last_resort() {
         let got = resolve_address(|_| None, "X", None, false, || Ok(A.to_string()));
         assert_eq!(got.unwrap(), A);
+    }
+}
+
+#[cfg(test)]
+mod codegen {
+    use super::*;
+    use proc_macro2::Span;
+    use quote::quote;
+    use syn::{Ident, parse2};
+
+    const A: &str = "CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322";
+
+    #[test]
+    fn parses_env_and_string_name() {
+        let input: Input = parse2(quote!(env, "unverified/our_dao@v0.1.0")).unwrap();
+        assert_eq!(input.name_raw, "unverified/our_dao@v0.1.0");
+    }
+
+    #[test]
+    fn parses_env_and_ident_name() {
+        let input: Input = parse2(quote!(env, registry)).unwrap();
+        assert_eq!(input.name_raw, "registry");
+    }
+
+    #[test]
+    fn expand_emits_delegation_and_bound_client() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let ident = Ident::new("our_dao", Span::call_site());
+        let out = expand(&env, "unverified/our_dao@v0.1.0", &ident, A).to_string();
+        assert!(
+            out.contains("import_contract_client"),
+            "delegates wasm import: {out}"
+        );
+        assert!(
+            out.contains("\"unverified/our_dao@v0.1.0\""),
+            "passes original name: {out}"
+        );
+        assert!(
+            out.contains("our_dao :: Client :: new"),
+            "constructs the client: {out}"
+        );
+        assert!(
+            out.contains("Address :: from_str"),
+            "builds the address: {out}"
+        );
+        assert!(out.contains(A), "bakes the resolved id: {out}");
     }
 }
