@@ -40,7 +40,13 @@ fn split_version(raw: &str) -> (String, Option<String>) {
 fn env_var_name(mod_name: &str) -> String {
     let sanitized: String = mod_name
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_uppercase() } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
         .collect();
     format!("STELLAR_CONTRACT_ID_{sanitized}")
 }
@@ -69,7 +75,10 @@ mod helpers {
 
     #[test]
     fn mod_name_strips_prefix_and_hyphens() {
-        assert_eq!(mod_name_from("unverified/registry_tansu_manager"), "registry_tansu_manager");
+        assert_eq!(
+            mod_name_from("unverified/registry_tansu_manager"),
+            "registry_tansu_manager"
+        );
         assert_eq!(mod_name_from("guess-the-number"), "guess_the_number");
         assert_eq!(mod_name_from("a/b/c"), "c");
         assert_eq!(mod_name_from("registry"), "registry");
@@ -77,26 +86,41 @@ mod helpers {
 
     #[test]
     fn split_version_optional_v() {
-        assert_eq!(split_version("our_dao@v0.1.0"), ("our_dao".into(), Some("0.1.0".into())));
+        assert_eq!(
+            split_version("our_dao@v0.1.0"),
+            ("our_dao".into(), Some("0.1.0".into()))
+        );
         assert_eq!(split_version("x@1.2.3"), ("x".into(), Some("1.2.3".into())));
         assert_eq!(split_version("x"), ("x".into(), None));
     }
 
     #[test]
     fn env_var_name_uppercases_and_sanitizes() {
-        assert_eq!(env_var_name("registry_tansu_manager"), "STELLAR_CONTRACT_ID_REGISTRY_TANSU_MANAGER");
-        assert_eq!(env_var_name("guess_the_number"), "STELLAR_CONTRACT_ID_GUESS_THE_NUMBER");
+        assert_eq!(
+            env_var_name("registry_tansu_manager"),
+            "STELLAR_CONTRACT_ID_REGISTRY_TANSU_MANAGER"
+        );
+        assert_eq!(
+            env_var_name("guess_the_number"),
+            "STELLAR_CONTRACT_ID_GUESS_THE_NUMBER"
+        );
     }
 
     #[test]
     fn validate_contract_id_trims_and_checks() {
-        assert_eq!(validate_contract_id(&format!("  {VALID}\n")).unwrap(), VALID);
+        assert_eq!(
+            validate_contract_id(&format!("  {VALID}\n")).unwrap(),
+            VALID
+        );
         assert!(validate_contract_id("not-an-address").is_err());
         assert!(validate_contract_id("").is_err());
     }
 
     #[test]
     fn cache_id_path_is_wasm_sibling() {
-        assert_eq!(cache_id_path(Path::new("target"), "our_dao"), Path::new("target/our_dao.id"));
+        assert_eq!(
+            cache_id_path(Path::new("target"), "our_dao"),
+            Path::new("target/our_dao.id")
+        );
     }
 }
