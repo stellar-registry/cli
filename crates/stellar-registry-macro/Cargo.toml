@@ -1,0 +1,20 @@
+[package]
+name = "stellar-registry-macro"
+version = "0.0.1"
+edition = "2024"
+description = "The import_contract! macro for the Stellar Registry"
+license = "Apache-2.0"
+repository.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+stellar-build = { workspace = true }
+stellar-strkey = { workspace = true }
+
+[lints]
+workspace = true
