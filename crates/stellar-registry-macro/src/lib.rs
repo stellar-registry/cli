@@ -2,6 +2,7 @@
 //! to a type-safe client already bound to its deployed on-chain address.
 extern crate proc_macro;
 
+use proc_macro::TokenStream;
 use std::{
     env,
     path::{Path, PathBuf},
@@ -120,6 +121,7 @@ use quote::quote;
 use syn::{
     Expr, Ident, LitStr, Token,
     parse::{Parse, ParseStream},
+    parse_macro_input,
 };
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
@@ -167,6 +169,64 @@ fn expand(
                 &::soroban_sdk::Address::from_str(__env, #address),
             )
         }
+    }
+}
+
+/// Generate a type-safe client for a deployed, registry-named contract,
+/// already bound to its on-chain address (resolved at build time).
+///
+/// ```ignore
+/// // `env: &Env`
+/// let dao = stellar_registry::import_contract!(env, our_dao);
+/// dao.create_proposal(/* ... */);
+/// ```
+///
+/// `name` accepts the same forms as [`import_contract_client!`]:
+/// `our_dao`, `"unverified/our_dao"`, `"our_dao@v1.0.0"`.
+///
+/// The address is resolved at build time: `STELLAR_CONTRACT_ID_<NAME>` env
+/// override → `target/stellar/<network>/<name>.id` cache →
+/// `stellar registry fetch-contract-id`. `STELLAR_NO_REGISTRY=1` forbids the
+/// network call. Because a real on-chain address is baked in, use this in
+/// real / integration builds; in `soroban_sdk` unit tests keep
+/// `import_contract_client!` plus your own `Client::new(env, &test_addr)`.
+#[proc_macro]
+pub fn import_contract(input: TokenStream) -> TokenStream {
+    let Input {
+        env,
+        name_raw,
+        name_span,
+    } = parse_macro_input!(input as Input);
+    let (name_part, _version) = split_version(&name_raw);
+    let mod_name = mod_name_from(&name_part);
+    let mod_ident = Ident::new(&mod_name, name_span);
+    let evar = env_var_name(&mod_name);
+
+    let no_registry = env::var("STELLAR_NO_REGISTRY").as_deref() == Ok("1");
+    let cache_path = stellar_build::get_target_dir(&manifest())
+        .ok()
+        .map(|dir| cache_id_path(&dir, &mod_name));
+    let cache = cache_path
+        .as_ref()
+        .and_then(|p| std::fs::read_to_string(p).ok());
+
+    let resolved = resolve_address(
+        |k| env::var(k).ok(),
+        &evar,
+        cache,
+        no_registry,
+        || {
+            let addr = fetch_contract_id(&name_part)?;
+            if let Some(p) = &cache_path {
+                let _ = std::fs::write(p, &addr);
+            }
+            Ok(addr)
+        },
+    );
+
+    match resolved {
+        Ok(address) => expand(&env, &name_raw, &mod_ident, &address).into(),
+        Err(msg) => syn::Error::new(name_span, msg).to_compile_error().into(),
     }
 }
 
