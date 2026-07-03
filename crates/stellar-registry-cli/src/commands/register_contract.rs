@@ -106,7 +106,7 @@ mod tests {
             .arg("--contract-name")
             .arg("my-hello")
             .arg("--contract-address")
-            .arg(&contract_id)
+            .arg(contract_id.as_str())
             .assert()
             .success();
 
@@ -151,7 +151,7 @@ mod tests {
             .arg("--contract-name")
             .arg("unverified/my-hello")
             .arg("--contract-address")
-            .arg(&contract_id)
+            .arg(contract_id.as_str())
             .assert()
             .success();
 
