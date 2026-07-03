@@ -59,9 +59,9 @@ jobs:
       - name: Assemble test wasms
         run: |
           mkdir -p target/stellar/local
-          cp _contracts/target/stellar/local/registry.wasm target/stellar/local/
-          cp _scaffold/target/stellar/local/hello_v1.wasm target/stellar/local/
-          cp _scaffold/target/stellar/local/hello_v2.wasm target/stellar/local/
+          cp _contracts/target/wasm32v1-none/contracts/registry.wasm target/stellar/local/
+          cp _scaffold/target/wasm32v1-none/contracts/hello_v1.wasm target/stellar/local/
+          cp _scaffold/target/wasm32v1-none/contracts/hello_v2.wasm target/stellar/local/
 
       - run: just build
       - name: Create nextest archive
