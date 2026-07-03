@@ -5,6 +5,7 @@ extern crate proc_macro;
 use std::{
     env,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 /// Path to the compiling crate's `Cargo.toml`.
@@ -65,6 +66,55 @@ fn cache_id_path(target_dir: &Path, mod_name: &str) -> PathBuf {
     target_dir.join(mod_name).with_extension("id")
 }
 
+/// Resolve the deployed address, first hit wins. All IO is injected so the
+/// precedence is unit-testable without a network or filesystem.
+fn resolve_address(
+    env_lookup: impl Fn(&str) -> Option<String>,
+    env_var: &str,
+    cache: Option<String>,
+    no_registry: bool,
+    fetch: impl FnOnce() -> Result<String, String>,
+) -> Result<String, String> {
+    if let Some(v) = env_lookup(env_var) {
+        return validate_contract_id(&v);
+    }
+    if let Some(c) = cache {
+        return validate_contract_id(&c);
+    }
+    if no_registry {
+        return Err(format!(
+            "No cached contract id and STELLAR_NO_REGISTRY=1 so not checking the Registry. \
+             Set {env_var}, or run `stellar registry fetch-contract-id <name>` and rebuild."
+        ));
+    }
+    validate_contract_id(&fetch()?)
+}
+
+/// Shell out to the `stellar` CLI to look up a deployed contract's id by name.
+/// Network selection is delegated to the CLI's own config (`STELLAR_NETWORK`).
+fn fetch_contract_id(lookup_name: &str) -> Result<String, String> {
+    let out = Command::new("stellar")
+        .args(["registry", "fetch-contract-id", lookup_name])
+        .output()
+        .map_err(|e| {
+            format!(
+                "failed to run `stellar registry fetch-contract-id`: {e}. \
+                 Install it with `cargo install stellar-registry-cli` and try again."
+            )
+        })?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    } else {
+        Err(format!(
+            "Could not resolve a contract id for `{lookup_name}`. \
+             Check the name & network and try again (https://stellar.rgstry.xyz), \
+             run `stellar registry fetch-contract-id {lookup_name}` yourself, \
+             or set STELLAR_NO_REGISTRY=1 to skip the registry lookup.\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        ))
+    }
+}
+
 #[cfg(test)]
 mod helpers {
     use super::*;
@@ -122,5 +172,46 @@ mod helpers {
             cache_id_path(Path::new("target"), "our_dao"),
             Path::new("target/our_dao.id")
         );
+    }
+}
+
+#[cfg(test)]
+mod resolution {
+    use super::*;
+    const A: &str = "CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322";
+    const B: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
+    fn no_fetch() -> Result<String, String> {
+        Err("fetch should not run".into())
+    }
+
+    #[test]
+    fn env_override_wins() {
+        let got = resolve_address(
+            |k| (k == "STELLAR_CONTRACT_ID_FOO").then(|| A.to_string()),
+            "STELLAR_CONTRACT_ID_FOO",
+            Some(B.to_string()),
+            false,
+            no_fetch,
+        );
+        assert_eq!(got.unwrap(), A);
+    }
+
+    #[test]
+    fn cache_used_when_no_env() {
+        let got = resolve_address(|_| None, "X", Some(B.to_string()), false, no_fetch);
+        assert_eq!(got.unwrap(), B);
+    }
+
+    #[test]
+    fn no_registry_errors_without_env_or_cache() {
+        let got = resolve_address(|_| None, "X", None, true, no_fetch);
+        assert!(got.unwrap_err().contains("STELLAR_NO_REGISTRY"));
+    }
+
+    #[test]
+    fn fetch_is_last_resort() {
+        let got = resolve_address(|_| None, "X", None, false, || Ok(A.to_string()));
+        assert_eq!(got.unwrap(), A);
     }
 }
