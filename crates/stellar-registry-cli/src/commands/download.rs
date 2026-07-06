@@ -84,7 +84,7 @@ impl Cmd {
 #[cfg(feature = "integration-tests")]
 #[cfg(test)]
 mod tests {
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     #[tokio::test]
     async fn simple() {

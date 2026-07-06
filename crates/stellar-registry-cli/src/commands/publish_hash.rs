@@ -45,7 +45,7 @@ impl Cmd {
         let author = if let Some(author) = self.author.clone() {
             author
         } else {
-            self.config.source_account().await?.to_string()
+            self.config.source_account()?.to_string()
         };
 
         let args = [
@@ -79,7 +79,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use stellar_cli::commands::contract::upload;
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     #[tokio::test]
     async fn simple() {

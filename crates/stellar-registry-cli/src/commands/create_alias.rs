@@ -77,7 +77,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
 
-    use stellar_scaffold_test::{AssertExt, RegistryTest};
+    use stellar_registry_test::{AssertExt, RegistryTest};
 
     fn publish_and_deploy(registry: &RegistryTest, name: &str) {
         // Path to the hello world contract WASM

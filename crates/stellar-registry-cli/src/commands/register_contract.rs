@@ -42,7 +42,7 @@ impl Cmd {
         let owner = if let Some(owner) = self.owner.clone() {
             owner
         } else {
-            self.config.source_account().await?.to_string()
+            self.config.source_account()?.to_string()
         };
 
         let args = [
@@ -73,7 +73,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use stellar_cli::commands::contract::deploy::wasm;
-    use stellar_scaffold_test::RegistryTest;
+    use stellar_registry_test::RegistryTest;
 
     #[tokio::test]
     async fn simple() {
@@ -106,7 +106,7 @@ mod tests {
             .arg("--contract-name")
             .arg("my-hello")
             .arg("--contract-address")
-            .arg(&contract_id)
+            .arg(contract_id.as_str())
             .assert()
             .success();
 
@@ -151,7 +151,7 @@ mod tests {
             .arg("--contract-name")
             .arg("unverified/my-hello")
             .arg("--contract-address")
-            .arg(&contract_id)
+            .arg(contract_id.as_str())
             .assert()
             .success();
 
