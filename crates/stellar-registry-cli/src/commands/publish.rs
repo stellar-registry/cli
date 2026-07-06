@@ -19,7 +19,7 @@ pub struct WasmArgs {
     #[arg(long)]
     pub wasm: Option<PathBuf>,
     /// Optionally can provide a github repo (<org>/<repo>) which hosts a contract with attestation
-    #[arg(long)]
+    #[arg(long, hide = true)]
     pub from_github: Option<String>,
 }
 
