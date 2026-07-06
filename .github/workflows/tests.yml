@@ -24,7 +24,7 @@ jobs:
       CI_CACHE: "/tmp/.cache"
       CI_BUILD: "--locked"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -42,7 +42,7 @@ jobs:
       # the hello_v1/v2 fixtures are local (crates/stellar-registry-test/
       # fixtures/contracts) and build with the CLI. Assemble both into the dir.
       - name: Checkout stellar-registry/contracts
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: stellar-registry/contracts
           path: _contracts
@@ -97,7 +97,7 @@ jobs:
       STELLAR_ACCOUNT: default
       STELLAR_CONTRACT_ID: core
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@nextest
       - uses: stellar/stellar-cli@v27.0.0

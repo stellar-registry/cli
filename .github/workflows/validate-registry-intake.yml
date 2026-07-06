@@ -55,7 +55,7 @@ jobs:
           echo "template=$TEMPLATE" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repo (for validator scripts and form templates)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Parse intake form
         id: parse
