@@ -31,7 +31,7 @@ clap = { workspace = true, features = [
     "deprecated",
     "string",
 ] }
-stellar-cli = { workspace = true, default-features = true }
+stellar-cli = { workspace = true, default-features = false, features = [] }
 stellar-registry-build = { path = "../stellar-registry-build", version = "0.0.9" }
 
 
