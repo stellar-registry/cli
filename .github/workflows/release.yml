@@ -37,6 +37,16 @@ jobs:
         run: cargo clean
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@main
+        with:
+          # TEMPORARY bootstrap for the repo split: run only `release-plz release`
+          # (publish + tag), skipping `release-pr`. release-pr walks git history
+          # comparing against the crates.io packages published from the old
+          # monorepo, and dies at pre-split commits whose filtered trees have
+          # unbuildable manifests. Publishing 0.0.11/0.0.9/0.0.22 from this repo
+          # anchors future walks at the bump commit (package equality + tag +
+          # .cargo_vcs_info.json sha). Remove this block after the bootstrap
+          # release succeeds.
+          command: release
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

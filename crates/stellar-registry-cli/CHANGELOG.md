@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.22](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.0.21...stellar-registry-cli-v0.0.22) - 2026-07-06
+
+### Added
+
+- [**breaking**] update to stellar-cli v27.0.0 ([#13](https://github.com/stellar-registry/cli/pull/13))
+- hide 'publish --from-github' option ([#18](https://github.com/stellar-registry/cli/pull/18))
+
+### Fixed
+
+- disable stellar-cli `additional-libs` (keyring/ledger/wasm-opt) again, dropping the D-Bus/udev system dependencies from the binary — restores [scaffold-stellar#283](https://github.com/theahaco/scaffold-stellar/pull/283), accidentally reverted by [#13](https://github.com/stellar-registry/cli/pull/13)
+
+### Other
+
+- Split out of the `scaffold-stellar` monorepo into `stellar-registry/cli`
+
 ## [0.0.21](https://github.com/theahaco/scaffold-stellar/compare/stellar-registry-cli-v0.0.20...stellar-registry-cli-v0.0.21) - 2026-04-27
 
 ### Added

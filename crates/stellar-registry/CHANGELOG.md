@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11](https://github.com/stellar-registry/cli/compare/stellar-registry-v0.0.10...stellar-registry-v0.0.11) - 2026-07-06
+
+### Other
+
+- Split out of the `scaffold-stellar` monorepo into `stellar-registry/cli`; `stellar-scaffold-macro` is now consumed from crates.io instead of a path dependency
+
 ## [0.0.10](https://github.com/theahaco/scaffold-stellar/compare/stellar-registry-v0.0.9...stellar-registry-v0.0.10) - 2026-04-03
 
 ### Other

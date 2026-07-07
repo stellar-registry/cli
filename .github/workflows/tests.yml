@@ -46,8 +46,11 @@ jobs:
         with:
           repository: stellar-registry/contracts
           path: _contracts
+      # The contracts repo builds with the default release profile (its
+      # size-optimized settings moved to [profile.release] in contracts#13);
+      # it has no `contracts` cargo profile.
       - name: Build registry.wasm
-        run: stellar contract build --profile contracts --package registry --manifest-path _contracts/Cargo.toml
+        run: stellar contract build --package registry --manifest-path _contracts/Cargo.toml
       - name: Build hello fixtures
         run: |
           stellar contract build --profile contracts --package hello_v1
@@ -55,7 +58,7 @@ jobs:
       - name: Assemble test wasms
         run: |
           mkdir -p target/stellar/local
-          cp _contracts/target/wasm32v1-none/contracts/registry.wasm target/stellar/local/
+          cp _contracts/target/wasm32v1-none/release/registry.wasm target/stellar/local/
           cp target/wasm32v1-none/contracts/hello_v1.wasm target/stellar/local/
           cp target/wasm32v1-none/contracts/hello_v2.wasm target/stellar/local/
 
