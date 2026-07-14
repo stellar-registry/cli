@@ -4,6 +4,31 @@
 **Repo:** `stellar-registry/cli`
 **Date:** 2026-07-02
 
+## Revision (post-review, 2026-07-14)
+
+Review (`stellar-registry/cli#17`) rejected the original codegen approach below.
+`import_contract!` resolves a *contract*, not a *wasm*, and the two are not the
+same thing. The implemented design differs from §B–§D as follows:
+
+1. **No `@version`.** A deployed contract has no version (only a wasm does). The
+   macro rejects `@` with a `compile_error!`.
+2. **No delegation to `import_contract_client!`.** That resolves a wasm by
+   *name*, wrongly assuming the contract's name equals its wasm's name. Instead
+   the macro fetches the deployed contract's *own* on-chain wasm by address
+   (`stellar contract fetch --id <addr> --out-file …`) and inlines
+   `soroban_sdk::contractimport!(file = …)` — so a contract whose wasm was never
+   published to the registry still works (the §C "Fallback" is now the primary).
+3. **Fail compilation if the contract is flagged** (`#38`, `#52`). No on-chain
+   getter exists, so the build reads the registry's `ContractEntry` persistent
+   ledger entry directly via RPC (key `(Symbol("CR"), <canonical name>)`; a
+   3-element vec = flagged) behind a new `fetch-contract-id --reject-flagged`.
+4. **Resolution precedence** (supersedes §D): `STELLAR_CONTRACT_ID_<NAME>` env
+   override → (only under `STELLAR_NO_REGISTRY=1`) the `.id` cache → online
+   `fetch-contract-id --reject-flagged`. Online builds do **not** trust the `.id`
+   cache, so a contract flagged after the first build cannot slip through; env
+   override and offline mode are the explicit opt-outs of the flag check.
+5. **Self-contained rustdoc** — no reference to `import_contract_client!`.
+
 ## Goal
 
 Make cross-contract calls to a *named* Stellar Registry contract a one-liner:

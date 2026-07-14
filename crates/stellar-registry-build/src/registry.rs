@@ -44,6 +44,47 @@ impl Registry {
         ))
     }
 
+    /// Is the named contract flagged as compromised in this (sub)registry?
+    ///
+    /// There is no on-chain getter for the flag, so read the raw persistent
+    /// `ContractEntry` ledger entry directly. It is keyed by
+    /// `(Symbol("CR"), <canonical name>)` and stored as a 2-tuple when
+    /// unflagged and a 3-tuple (with a trailing `Void` sentinel) when flagged —
+    /// the vec length carries the flag. Mirrors the registry contract's
+    /// `ContractKey` / `ContractEntry` (stellar-registry/contracts
+    /// `src/storage.rs`); coupled to that encoding by design.
+    pub async fn is_contract_flagged(&self, name: &str) -> Result<bool, Error> {
+        use stellar_cli::xdr;
+        let canonical: String = name
+            .chars()
+            .map(|c| if c == '_' { '-' } else { c.to_ascii_lowercase() })
+            .collect();
+        let key = xdr::ScVal::Vec(Some(
+            vec![
+                xdr::ScVal::Symbol(xdr::ScSymbol("CR".try_into()?)),
+                xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
+            ]
+            .try_into()?,
+        ));
+        let ledger_key = xdr::LedgerKey::ContractData(xdr::LedgerKeyContractData {
+            contract: self.0.sc_address(),
+            key,
+            durability: xdr::ContractDataDurability::Persistent,
+        });
+        let entries = self
+            .0
+            .rpc_client()?
+            .get_full_ledger_entries(&[ledger_key])
+            .await?
+            .entries;
+        Ok(entries.into_iter().any(|e| match e.val {
+            xdr::LedgerEntryData::ContractData(cd) => {
+                matches!(cd.val, xdr::ScVal::Vec(Some(v)) if v.len() == 3)
+            }
+            _ => false,
+        }))
+    }
+
     pub fn as_contract(&self) -> &Contract {
         &self.0
     }

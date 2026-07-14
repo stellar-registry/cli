@@ -15,4 +15,8 @@ pub enum Error {
     Locator(#[from] locator::Error),
     #[error(transparent)]
     Build(#[from] stellar_build::networks::Error),
+    #[error(transparent)]
+    Rpc(#[from] soroban_rpc::Error),
+    #[error(transparent)]
+    Xdr(#[from] stellar_cli::xdr::Error),
 }

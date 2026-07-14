@@ -10,6 +10,13 @@
 
 **Design spec:** `docs/superpowers/specs/2026-07-02-import-contract-macro-design.md`. **Issue:** stellar-scaffold/cli#419.
 
+> **Revised post-review (2026-07-14, PR #17):** the "delegates wasm/type
+> generation to `import_contract_client!`" architecture above was rejected. See
+> the design spec's "Revision (post-review)" section — the macro takes no
+> `@version`, generates types from the deployed contract's own on-chain wasm
+> (`stellar contract fetch --id`), and fails compilation if the contract is
+> flagged (`fetch-contract-id --reject-flagged`, a raw `ContractEntry` ledger read).
+
 ## Global Constraints
 
 - Rust **edition 2024** (matches the existing `stellar-registry` crate).

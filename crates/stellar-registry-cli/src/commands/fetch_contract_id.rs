@@ -11,6 +11,12 @@ pub struct Cmd {
     /// E.g. `unverified/<name>`
     pub contract_name: PrefixedName,
 
+    /// Fail (non-zero exit) if the contract is flagged as compromised in the
+    /// registry. Used by `import_contract!` to refuse importing a flagged
+    /// contract at build time.
+    #[arg(long)]
+    pub reject_flagged: bool,
+
     #[command(flatten)]
     pub config: global::Args,
 }
@@ -23,6 +29,8 @@ pub enum Error {
     Config(#[from] stellar_cli::config::Error),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
+    #[error("contract `{0}` is flagged as compromised in the registry")]
+    ContractFlagged(String),
 }
 
 impl Cmd {
@@ -34,6 +42,13 @@ impl Cmd {
 
     pub async fn fetch_contract_id(&self) -> Result<Contract, Error> {
         let registry = self.contract_name.registry(&self.config).await?;
+        if self.reject_flagged
+            && registry
+                .is_contract_flagged(&self.contract_name.name)
+                .await?
+        {
+            return Err(Error::ContractFlagged(self.contract_name.to_string()));
+        }
         Ok(registry.fetch_contract_id(&self.contract_name.name).await?)
     }
 }
