@@ -1,6 +1,6 @@
 use clap::Parser;
 use stellar_cli::{commands::contract::invoke, config};
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::commands::global;
 
@@ -8,7 +8,7 @@ use crate::commands::global;
 pub struct Cmd {
     /// Name of the registered contract
     #[arg(long)]
-    pub contract_name: PrefixedName,
+    pub contract_name: Prefixed,
 
     /// New owner address
     #[arg(long)]
@@ -34,12 +34,12 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let registry = Registry::new(&self.config, self.contract_name.channel.as_deref()).await?;
+        let registry = Registry::new(&self.config, self.contract_name.channel()).await?;
 
         let args = [
             "update_contract_owner",
             "--contract_name",
-            &self.contract_name.name,
+            self.contract_name.name(),
             "--new_owner",
             &self.new_owner,
         ];
@@ -49,7 +49,7 @@ impl Cmd {
         eprintln!(
             "{}Successfully updated owner of '{}' to {}",
             if self.dry_run { "Dry Run: " } else { "" },
-            self.contract_name.name,
+            self.contract_name.name(),
             self.new_owner
         );
         Ok(())

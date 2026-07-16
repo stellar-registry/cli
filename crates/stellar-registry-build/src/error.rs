@@ -7,6 +7,8 @@ use stellar_cli::{
 pub enum Error {
     #[error("Invalid contract id: {0}")]
     InvalidContractId(String),
+    #[error("contract `{0}` is flagged as compromised in the registry")]
+    ContractFlagged(String),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]

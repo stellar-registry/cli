@@ -10,7 +10,7 @@ Related repos:
 - `stellar-registry/contracts` — the on-chain registry contracts this CLI talks to
 - `stellar-registry/ui` — registry frontend
 - `stellar-registry/indexer` — registry indexer & API
-- `stellar-scaffold/cli` — the `stellar scaffold` CLI; publishes `stellar-build` and `stellar-scaffold-macro` (crates.io) that this repo depends on
+- `stellar-scaffold/cli` — the `stellar scaffold` CLI; publishes `stellar-build` (crates.io) that this repo depends on
 
 ## Common Commands
 
@@ -41,7 +41,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 |-------|---------|
 | `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract` |
 | `stellar-registry-build` | Library for interacting with the registry at build time |
-| `stellar-registry` | Shared registry types and the `import_contract_client!` macro (published to crates.io; dev-dependency of `stellar-registry/contracts`) |
+| `stellar-registry` | Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro` (published to crates.io; dev-dependency of `stellar-registry/contracts`) |
 
 ### CLI Command Flow
 
@@ -59,7 +59,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 ## Cross-repo dependencies
 
 This repo's crates depend on, from crates.io:
-- `stellar-build` and `stellar-scaffold-macro` — published from `stellar-scaffold/cli`
+- `stellar-build` — published from `stellar-scaffold/cli`
 - `stellar-scaffold-test` — pulled via git from `stellar-scaffold/cli` (it is `publish = false`); used in tests only
 
 These are declared as workspace dependencies in the root `Cargo.toml`. If the registry CLI ever needs an unreleased change in one of these, bump and publish it from `stellar-scaffold/cli` first (or temporarily `[patch]` it locally).

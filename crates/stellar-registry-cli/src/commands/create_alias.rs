@@ -1,7 +1,7 @@
 use clap::Parser;
 
 use stellar_cli::commands::contract::invoke;
-use stellar_registry_build::named_registry::PrefixedName;
+use stellar_registry_build::name::Prefixed;
 use stellar_strkey::Contract;
 
 use crate::commands::global;
@@ -10,12 +10,13 @@ use crate::commands::global;
 pub struct Cmd {
     /// Name of deployed contract. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`
-    pub contract: PrefixedName,
+    pub contract: Prefixed,
 
     /// Optional custom local name for the alias. If not provided, uses the name from the registry.
     pub local_name: Option<String>,
 
-    /// Force overwrite if an alias with the same name already exists.
+    /// Force overwrite if an alias with the same name already exists, and
+    /// allow aliasing a contract flagged as compromised in the registry.
     #[arg(short, long)]
     pub force: bool,
 
@@ -38,13 +39,17 @@ pub enum Error {
     #[error(
         "Existing alias \"{1}\" exists. Overwrite with -f or provide a different local name like: \"create-alias {0} other-{1}\"."
     )]
-    AliasExists(PrefixedName, String),
+    AliasExists(Prefixed, String),
+    #[error(
+        "contract `{0}` is flagged as compromised in the registry; pass --force to create the alias anyway"
+    )]
+    ContractFlagged(String),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let network_passphrase = self.config.get_network()?.network_passphrase;
-        let alias = self.local_name.as_deref().unwrap_or(&self.contract.name);
+        let alias = self.local_name.as_deref().unwrap_or(self.contract.name());
         let contract = self.get_contract_id().await?;
 
         // Check if alias already exists
@@ -69,7 +74,20 @@ impl Cmd {
     pub async fn get_contract_id(&self) -> Result<Contract, Error> {
         let registry = &self.contract.registry(&self.config).await?;
         eprintln!("Fetching contract ID via registry...");
-        Ok(registry.fetch_contract_id(&self.contract.name).await?)
+        if self.force {
+            return Ok(registry
+                .fetch_contract_id_unchecked(self.contract.name())
+                .await?);
+        }
+        registry
+            .fetch_contract_id(self.contract.name())
+            .await
+            .map_err(|e| match e {
+                stellar_registry_build::Error::ContractFlagged(_) => {
+                    Error::ContractFlagged(self.contract.to_string())
+                }
+                other => other.into(),
+            })
     }
 }
 

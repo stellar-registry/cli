@@ -91,6 +91,12 @@ pub enum ContractId {
     FromRegistry(name::Prefixed),
 }
 
+impl From<name::Prefixed> for ContractId {
+    fn from(value: name::Prefixed) -> Self {
+        Self::FromRegistry(value)
+    }
+}
+
 impl ContractId {
     pub async fn resolve_id(
         &self,
@@ -105,10 +111,10 @@ impl ContractId {
             ContractId::PreHash(pre_hash_contract_id) => {
                 pre_hash_contract_id.id(&network_passphrase.parse()?)
             }
-            ContractId::FromRegistry(name::Prefixed { channel, name }) => {
-                Registry::new(config, channel.as_deref())
+            ContractId::FromRegistry(name) => {
+                Registry::new(config, name.channel())
                     .await?
-                    .fetch_contract_id(name)
+                    .fetch_contract_id(name.name())
                     .await?
             }
         })

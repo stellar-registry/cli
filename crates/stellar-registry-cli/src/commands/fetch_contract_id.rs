@@ -1,6 +1,6 @@
 use clap::Parser;
 use stellar_cli::commands::contract::invoke;
-use stellar_registry_build::named_registry::PrefixedName;
+use stellar_registry_build::name::Prefixed;
 use stellar_strkey::Contract;
 
 use crate::commands::global;
@@ -9,13 +9,12 @@ use crate::commands::global;
 pub struct Cmd {
     /// Name of deployed contract. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`
-    pub contract_name: PrefixedName,
+    pub contract_name: Prefixed,
 
-    /// Fail (non-zero exit) if the contract is flagged as compromised in the
-    /// registry. Used by `import_contract!` to refuse importing a flagged
-    /// contract at build time.
+    /// Return the id even if the contract is flagged as compromised in the
+    /// registry. Without this, flagged contracts fail with a non-zero exit.
     #[arg(long)]
-    pub reject_flagged: bool,
+    pub force: bool,
 
     #[command(flatten)]
     pub config: global::Args,
@@ -29,7 +28,9 @@ pub enum Error {
     Config(#[from] stellar_cli::config::Error),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
-    #[error("contract `{0}` is flagged as compromised in the registry")]
+    #[error(
+        "contract `{0}` is flagged as compromised in the registry; pass --force to fetch its id anyway"
+    )]
     ContractFlagged(String),
 }
 
@@ -42,14 +43,20 @@ impl Cmd {
 
     pub async fn fetch_contract_id(&self) -> Result<Contract, Error> {
         let registry = self.contract_name.registry(&self.config).await?;
-        if self.reject_flagged
-            && registry
-                .is_contract_flagged(&self.contract_name.name)
-                .await?
-        {
-            return Err(Error::ContractFlagged(self.contract_name.to_string()));
+        if self.force {
+            return Ok(registry
+                .fetch_contract_id_unchecked(self.contract_name.name())
+                .await?);
         }
-        Ok(registry.fetch_contract_id(&self.contract_name.name).await?)
+        registry
+            .fetch_contract_id(self.contract_name.name())
+            .await
+            .map_err(|e| match e {
+                stellar_registry_build::Error::ContractFlagged(_) => {
+                    Error::ContractFlagged(self.contract_name.to_string())
+                }
+                other => other.into(),
+            })
     }
 }
 

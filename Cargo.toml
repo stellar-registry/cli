@@ -10,13 +10,14 @@ repository = "https://github.com/stellar-registry/cli"
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
-stellar-registry-macro = { path = "crates/stellar-registry-macro" }
-stellar-registry-build = { path = "crates/stellar-registry-build" }
+stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.0.1" }
+# default-features = false so the proc-macro crate gets only the light `name`
+# module; network-facing consumers opt back in with features = ["cli"].
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.10", default-features = false }
 
 # Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
 # git for stellar-scaffold-test which is `publish = false`).
 stellar-build = "0.0.6"
-stellar-scaffold-macro = "0.8.14"
 
 stellar-cli = { version = "27.0.0", package = "soroban-cli", default-features = false }
 soroban-rpc = { package = "stellar-rpc-client", version = "27.0.0" }

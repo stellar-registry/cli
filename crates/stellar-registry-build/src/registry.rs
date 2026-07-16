@@ -8,12 +8,19 @@ use crate::{
 
 pub struct Registry(Contract);
 
+impl name::Prefixed {
+    /// Resolve the (sub)registry this name's channel points at.
+    pub async fn registry(&self, config: &config::Args) -> Result<Registry, Error> {
+        Registry::from_named_registry(config, self).await
+    }
+}
+
 impl Registry {
     pub async fn from_named_registry(
         config: &config::Args,
         name: &name::Prefixed,
     ) -> Result<Self, Error> {
-        Self::new(config, name.channel.as_deref()).await
+        Self::new(config, name.channel()).await
     }
 
     pub async fn new(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
@@ -29,7 +36,23 @@ impl Registry {
         })
     }
 
+    /// Fetch the deployed contract id for `name`, refusing to return it if the
+    /// contract is flagged as compromised in the registry. Callers that really
+    /// want a flagged id (e.g. behind a user-facing `--force`) must say so with
+    /// [`Self::fetch_contract_id_unchecked`].
     pub async fn fetch_contract_id(&self, name: &str) -> Result<stellar_strkey::Contract, Error> {
+        if self.is_contract_flagged(name).await? {
+            return Err(Error::ContractFlagged(name.to_string()));
+        }
+        self.fetch_contract_id_unchecked(name).await
+    }
+
+    /// Fetch the deployed contract id for `name` without the compromised-flag
+    /// check. Dangerous: prefer [`Self::fetch_contract_id`].
+    pub async fn fetch_contract_id_unchecked(
+        &self,
+        name: &str,
+    ) -> Result<stellar_strkey::Contract, Error> {
         let slop = ["fetch_contract_id", "--contract-name", name];
         let contract_id = self.0.invoke_with_result(&slop, true).await?;
         contract_id
@@ -39,8 +62,12 @@ impl Registry {
     }
 
     pub async fn fetch_contract(&self, name: &str) -> Result<Contract, Error> {
+        // Unchecked on purpose: this resolves channel/subregistry contracts
+        // during `Registry::new`, before any user-facing `--force` flag can be
+        // consulted. The flagged-contract rejection is scoped to leaf
+        // contract-id lookups via `fetch_contract_id`.
         Ok(Contract::new(
-            self.fetch_contract_id(name).await?,
+            self.fetch_contract_id_unchecked(name).await?,
             self.0.config(),
         ))
     }
@@ -56,16 +83,7 @@ impl Registry {
     /// `src/storage.rs`); coupled to that encoding by design.
     pub async fn is_contract_flagged(&self, name: &str) -> Result<bool, Error> {
         use stellar_cli::xdr;
-        let canonical: String = name
-            .chars()
-            .map(|c| {
-                if c == '_' {
-                    '-'
-                } else {
-                    c.to_ascii_lowercase()
-                }
-            })
-            .collect();
+        let canonical = name::canonicalize(name);
         let key = xdr::ScVal::Vec(Some(
             vec![
                 xdr::ScVal::Symbol(xdr::ScSymbol("CR".try_into()?)),

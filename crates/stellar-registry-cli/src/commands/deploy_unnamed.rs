@@ -12,7 +12,7 @@ use stellar_cli::{
     utils::rpc::get_remote_wasm_from_hash,
     xdr::{self, InvokeContractArgs, ScSpecEntry, ScString, ScVal, Uint256},
 };
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::commands::global;
 
@@ -23,7 +23,7 @@ pub struct Cmd {
     /// Name of published wasm to deploy from. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long)]
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
 
     /// Arguments for constructor
     #[arg(last = true, id = "CONSTRUCTOR_ARGS")]
@@ -89,7 +89,7 @@ impl Cmd {
     }
 
     pub async fn hash(&self, registry: &Registry) -> Result<xdr::Hash, Error> {
-        let mut slop = vec!["fetch_hash", "--wasm_name", &self.wasm_name.name];
+        let mut slop = vec!["fetch_hash", "--wasm_name", &self.wasm_name.name()];
         let version = self.version.clone().map(|v| format!("\"{v}\""));
         if let Some(version) = version.as_deref() {
             slop.push("--version");
@@ -149,7 +149,7 @@ impl Cmd {
             .unwrap(),
         ));
         let args: [ScVal; 5] = [
-            ScVal::String(ScString(self.wasm_name.name.clone().try_into().unwrap())),
+            ScVal::String(ScString(self.wasm_name.name().try_into().unwrap())),
             self.version.clone().map_or(ScVal::Void, |s| {
                 ScVal::String(ScString(s.try_into().unwrap()))
             }),

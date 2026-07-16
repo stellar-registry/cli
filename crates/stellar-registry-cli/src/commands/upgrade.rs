@@ -1,6 +1,6 @@
 use clap::Parser;
 use stellar_cli::commands::contract::invoke;
-use stellar_registry_build::named_registry::PrefixedName;
+use stellar_registry_build::name::Prefixed;
 
 use crate::commands::global;
 
@@ -9,12 +9,12 @@ pub struct Cmd {
     /// Name of contract to upgrade.  Can use prefix of not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long)]
-    pub contract_name: PrefixedName,
+    pub contract_name: Prefixed,
 
     /// Name of published Wasm.  Can use prefix of not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long)]
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
 
     /// Version of published Wasm, if not specified, the latest version will be fetched
     #[arg(long)]
@@ -44,8 +44,8 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        let contract_name = &self.contract_name.name;
-        let wasm_name = &self.wasm_name.name;
+        let contract_name = &self.contract_name.name();
+        let wasm_name = &self.wasm_name.name();
 
         let mut slop = vec![
             "upgrade_contract",

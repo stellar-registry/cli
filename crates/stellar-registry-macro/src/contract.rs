@@ -1,77 +1,33 @@
-use proc_macro::TokenStream;
 use std::{
     env,
     path::{Path, PathBuf},
     process::Command,
 };
 
-use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    Expr, Ident, LitStr, Token,
+    Expr, Ident, Token,
     parse::{Parse, ParseStream},
-    parse_macro_input,
 };
 
-/// Path to the compiling crate's `Cargo.toml`.
-fn manifest() -> PathBuf {
-    PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("failed to find cargo manifest"))
-        .join("Cargo.toml")
+use stellar_registry_build::name::Prefixed;
+
+use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
+
+/// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
+/// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
+struct Input {
+    env: Expr,
+    name: Name,
 }
 
-/// Rust module identifier from a (possibly channel-prefixed) registry name:
-/// final `/`-segment with `-` replaced by `_`.
-fn mod_name_from(name_part: &str) -> String {
-    name_part
-        .rsplit('/')
-        .next()
-        .unwrap_or(name_part)
-        .replace('-', "_")
-}
-
-/// A name whose derived module identifier is empty (e.g. `""`, `"foo/"`) cannot
-/// form a valid Rust identifier. Reject it up front so the macro emits a
-/// `compile_error!` instead of panicking inside `Ident::new`.
-fn check_mod_name(mod_name: &str) -> Result<(), String> {
-    if mod_name.is_empty() {
-        Err(
-            "import_contract! needs a contract name whose module identifier is non-empty \
-             (got an empty name, or one like \"foo/\")"
-                .to_string(),
-        )
-    } else {
-        Ok(())
+impl Parse for Input {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let env: Expr = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let name: Name = input.parse()?;
+        Ok(Self { env, name })
     }
-}
-
-/// A deployed contract has no version — only a wasm does. Reject the `@version`
-/// syntax `import_contract_client!` accepts, pointing the caller at the plain form.
-fn reject_version(raw: &str) -> Result<(), String> {
-    if raw.contains('@') {
-        Err(format!(
-            "import_contract! does not take a version — a deployed contract has no version \
-             (got {raw:?}). Use just the contract name, e.g. `import_contract!(env, our_dao)`."
-        ))
-    } else {
-        Ok(())
-    }
-}
-
-/// Env var a caller can set to bypass the network:
-/// `STELLAR_CONTRACT_ID_<NAME>`, NAME = uppercased module name with any
-/// non-alphanumeric replaced by `_`.
-fn env_var_name(mod_name: &str) -> String {
-    let sanitized: String = mod_name
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c.to_ascii_uppercase()
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    format!("STELLAR_CONTRACT_ID_{sanitized}")
 }
 
 /// Validate a `C…` contract strkey; return it trimmed.
@@ -82,76 +38,132 @@ fn validate_contract_id(s: &str) -> Result<String, String> {
         .map_err(|_| format!("not a valid contract id (C… strkey): {t:?}"))
 }
 
-/// `<target_dir>/<mod_name>.id` — cached deployed address. Keyed by name only:
-/// a deployed instance's address is version-independent.
-fn cache_id_path(target_dir: &Path, mod_name: &str) -> PathBuf {
-    target_dir.join(mod_name).with_extension("id")
+/// Cache file stem for a deployed-contract import. The channel is part of a
+/// contract's identity, so it is part of the key — `unverified/foo` and `foo`
+/// are different contracts and must never share cache files.
+fn cache_stem(contract: &Prefixed) -> String {
+    match contract.channel() {
+        Some(channel) => format!("{channel}__{}", contract.mod_name()),
+        None => contract.mod_name(),
+    }
 }
 
-/// `<target_dir>/<mod_name>.wasm` — the deployed contract's wasm, fetched by
-/// address, that `contractimport!` reads to generate the client types.
-fn cache_wasm_path(target_dir: &Path, mod_name: &str) -> PathBuf {
-    target_dir.join(mod_name).with_extension("wasm")
+/// `<target_dir>/deployed/<stem>.id` — cached deployed address. Namespaced
+/// under `deployed/` so it can never collide with registry-downloaded or
+/// workspace-built wasms, which live directly in the network dir under the
+/// same `<mod_name>.wasm` naming.
+fn cache_id_path(target_dir: &Path, contract: &Prefixed) -> PathBuf {
+    target_dir
+        .join("deployed")
+        .join(cache_stem(contract))
+        .with_extension("id")
 }
 
-/// Resolve the deployed address. Precedence, first hit wins:
-///   1. `STELLAR_CONTRACT_ID_<NAME>` env override — explicit, no flag check.
-///   2. `STELLAR_NO_REGISTRY=1` — offline: the `<name>.id` cache, no flag check.
-///   3. otherwise online — `fetch` (which also fails if the contract is flagged)
-///      and refresh the cache. The cache is deliberately NOT consulted online,
-///      so a contract flagged after the first build cannot slip through a stale
-///      `.id`. All IO is injected so precedence is unit-testable offline.
+/// `<target_dir>/deployed/<stem>.wasm` — the deployed contract's wasm, fetched
+/// by address, that `contractimport!` reads to generate the client types.
+fn cache_wasm_path(target_dir: &Path, contract: &Prefixed) -> PathBuf {
+    target_dir
+        .join("deployed")
+        .join(cache_stem(contract))
+        .with_extension("wasm")
+}
+
+/// The cached wasm belongs to a specific deployment. Online, if the freshly
+/// resolved address differs from the previously cached id (redeploy under the
+/// same name), the wasm must be refetched. Offline there is nothing to compare
+/// against — the cache is trusted as-is.
+fn wasm_is_stale(previously_cached_id: Option<&str>, address: &str, no_registry: bool) -> bool {
+    !no_registry && previously_cached_id.map(str::trim) != Some(address)
+}
+
+/// The "things to try" footer for resolution failures: a name-check link when
+/// the network has an explorer, a manual repro command, and the offline escape
+/// hatch with the exact cache paths this build expects.
+fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> String {
+    let name_check = explorer_url(&network_name())
+        .map(|url| format!("- Check that you got the name right: {url}\n"))
+        .unwrap_or_default();
+    format!(
+        "{name_check}\
+         - Run `stellar registry fetch-contract-id {lookup}` yourself and make sure the name \
+         and network match your expectations.\n\
+         - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id} and \
+         {wasm} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
+         `stellar contract fetch` for the wasm.",
+        id = id_path.display(),
+        wasm = wasm_path.display(),
+    )
+}
+
+/// Resolve the deployed address. Offline (`STELLAR_NO_REGISTRY=1`) the cached
+/// `.id` is required. Online the cache is deliberately NOT consulted —
+/// `fetch` runs every build (and fails if the contract is flagged), so a
+/// contract flagged after the first build cannot slip through a stale `.id`.
+/// IO is injected so the precedence is unit-testable offline.
 fn resolve_address(
-    env_lookup: impl Fn(&str) -> Option<String>,
-    env_var: &str,
     cache: Option<String>,
     no_registry: bool,
+    offline_help: &str,
     fetch: impl FnOnce() -> Result<String, String>,
 ) -> Result<String, String> {
-    if let Some(v) = env_lookup(env_var) {
-        return validate_contract_id(&v);
-    }
     if no_registry {
         return match cache {
             Some(c) => validate_contract_id(&c),
             None => Err(format!(
-                "STELLAR_NO_REGISTRY=1 but no cached contract id. Set {env_var}, or build \
-                 online once (which caches it), then rebuild offline."
+                "STELLAR_NO_REGISTRY=1 but no cached contract id. Things to try:\n\n{offline_help}"
             )),
         };
     }
     validate_contract_id(&fetch()?)
 }
 
-/// Shell out to the `stellar` CLI to look up a deployed contract's id by name,
-/// failing if it is flagged as compromised (`--reject-flagged`). Network
-/// selection is delegated to the CLI's own config (`STELLAR_NETWORK`).
-fn fetch_contract_id(lookup_name: &str) -> Result<String, String> {
+/// Shell out to the `stellar` CLI to look up a deployed contract's id by name.
+/// A current `stellar-registry-cli` refuses flagged contracts by default, so a
+/// flagged contract fails this build; plugins that predate the check resolve
+/// the id without it. Network selection is delegated to the CLI's own config
+/// (`STELLAR_NETWORK`). Failures are mapped to the most specific message the
+/// CLI's stderr allows.
+fn fetch_contract_id(lookup: &Prefixed, help: &str) -> Result<String, String> {
     let out = Command::new("stellar")
-        .args([
-            "registry",
-            "fetch-contract-id",
-            lookup_name,
-            "--reject-flagged",
-        ])
+        .args(["registry", "fetch-contract-id"])
+        .arg(lookup.to_string())
         .output()
         .map_err(|e| {
             format!(
-                "failed to run `stellar registry fetch-contract-id`: {e}. \
-                 Install it with `cargo install stellar-registry-cli` and try again."
+                "failed to run `stellar`: {e}. Install the Stellar CLI, then \
+                 `cargo install stellar-registry-cli` for the registry plugin."
             )
         })?;
     if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-    } else {
-        Err(format!(
-            "Could not resolve `{lookup_name}`. It may not be registered, may be flagged as \
-             compromised, or the network may be wrong (https://stellar.rgstry.xyz). Run \
-             `stellar registry fetch-contract-id {lookup_name}` yourself, or set \
-             STELLAR_NO_REGISTRY=1 with a cached id to skip the registry lookup.\n{}",
-            String::from_utf8_lossy(&out.stderr)
-        ))
+        return Ok(String::from_utf8_lossy(&out.stdout).trim().to_string());
     }
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    // An installed-but-outdated plugin rejects the subcommand or an argument;
+    // check before the plugin-missing case, whose stderr wording overlaps.
+    if stderr.contains("unexpected argument")
+        || (stderr.contains("unrecognized subcommand") && stderr.contains("fetch-contract-id"))
+    {
+        return Err(format!(
+            "the installed `stellar registry` plugin is too old for import_contract!. Upgrade \
+             it with `cargo install stellar-registry-cli --force`.\n\nstderr:\n{stderr}"
+        ));
+    }
+    if stderr.contains("unrecognized subcommand") || stderr.contains("no such command") {
+        return Err(format!(
+            "the `stellar registry` plugin is not installed. Install it with \
+             `cargo install stellar-registry-cli`.\n\nstderr:\n{stderr}"
+        ));
+    }
+    if stderr.contains("flagged as compromised") {
+        return Err(format!(
+            "contract `{lookup}` is flagged as compromised in the registry; refusing to import it."
+        ));
+    }
+    Err(format!(
+        "Could not resolve a contract id for `{lookup}` on {network}. Things to try:\n\n\
+         {help}\n\nstderr from `stellar registry fetch-contract-id`:\n{stderr}",
+        network = network_name(),
+    ))
 }
 
 /// Shell out to `stellar contract fetch` to download a *deployed* contract's own
@@ -177,33 +189,11 @@ fn fetch_wasm(address: &str, out_path: &Path) -> Result<(), String> {
     }
 }
 
-enum Name {
-    Ident(Ident),
-    LitStr(LitStr),
-}
-
-/// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
-/// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
-struct Input {
-    env: Expr,
-    name: Name,
-}
-
-impl Parse for Input {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let env: Expr = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let name = if input.peek(LitStr) {
-            Name::LitStr(input.parse::<LitStr>()?)
-        } else {
-            Name::Ident(input.parse::<Ident>()?)
-        };
-        Ok(Self { env, name })
-    }
-}
-
 /// Emit a block expression: generate the client types from the deployed
 /// contract's own wasm, then construct the client bound to the baked address.
+/// `use ::soroban_sdk;` resolves through the extern prelude — consistently
+/// with the `::soroban_sdk::Env` binding below — so callers need no
+/// `use soroban_sdk;` of their own.
 fn expand(
     env: &Expr,
     mod_ident: &Ident,
@@ -212,8 +202,10 @@ fn expand(
 ) -> proc_macro2::TokenStream {
     quote! {
         {
+            #[allow(non_snake_case)]
             mod #mod_ident {
-                use super::soroban_sdk;
+                #![allow(clippy::ref_option, clippy::too_many_arguments)]
+                use ::soroban_sdk;
                 soroban_sdk::contractimport!(file = #wasm_path);
             }
             let __env: &::soroban_sdk::Env = #env;
@@ -225,91 +217,66 @@ fn expand(
     }
 }
 
-/// Generate a type-safe client for a deployed, registry-named contract, already
-/// bound to its on-chain address — collapsing "look up the address" and
-/// "generate the client type" into one call.
-///
-/// ```ignore
-/// // `env: &Env`
-/// let dao = stellar_registry::import_contract!(env, our_dao);
-/// dao.create_proposal(/* ... */);
-/// ```
-///
-/// `name` is a bare ident or string literal, optionally channel-prefixed
-/// (`import_contract!(env, "unverified/our_dao")`). A deployed contract has no
-/// version, so **no `@version` is accepted**. The client types are generated
-/// from the deployed contract's *own* on-chain wasm, so a contract whose wasm
-/// was never published to the registry still works.
-///
-/// Resolved at build time:
-/// - **address** — `STELLAR_CONTRACT_ID_<NAME>` env override → (offline only)
-///   `target/stellar/<network>/<name>.id` cache → `stellar registry
-///   fetch-contract-id`. The online path **fails compilation if the contract is
-///   flagged as compromised** in the registry.
-/// - **wasm** — `stellar contract fetch --id <address>`, cached beside the id.
-///
-/// `STELLAR_NO_REGISTRY=1` forbids the network calls (requires a cached id +
-/// wasm, and skips the flag check). Because a real on-chain address is baked in,
-/// use this in real / integration builds; if the named contract is redeployed or
-/// upgraded, clear the cache (`cargo clean`) and rebuild.
-#[proc_macro]
-pub fn import_contract(input: TokenStream) -> TokenStream {
-    let Input { env, name } = parse_macro_input!(input as Input);
+pub(crate) fn import_contract(
+    input: proc_macro::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let Input { env, name } = syn::parse(input)?;
+    let span = name.span();
+    let err = |msg: String| syn::Error::new(span, msg);
 
-    let err =
-        |msg: String| -> TokenStream { syn::Error::new(name_span, msg).to_compile_error().into() };
-
-    if let Err(msg) = reject_version(&name_raw) {
-        return err(msg);
+    // A deployed contract has no version; give the `@version` mistake its own
+    // message before `Prefixed` (which also rejects it) reports generically.
+    let raw = name.raw();
+    if raw.contains('@') {
+        return Err(err(format!(
+            "import_contract! does not take a version — a deployed contract has no version \
+             (got {raw:?}). Use just the contract name, e.g. `import_contract!(env, our_dao)`."
+        )));
     }
-    let mod_name = mod_name_from(&name_raw);
-    if let Err(msg) = check_mod_name(&mod_name) {
-        return err(msg);
-    }
-    let mod_ident = Ident::new(&mod_name, name_span);
-    let evar = env_var_name(&mod_name);
+    let contract: Prefixed = name.parse_as()?;
+    let mod_ident = mod_ident(&contract, span)?;
 
     let no_registry = env::var("STELLAR_NO_REGISTRY").as_deref() == Ok("1");
-    let target_dir = match stellar_build::get_target_dir(&manifest()) {
-        Ok(dir) => dir,
-        Err(e) => return err(format!("could not determine the cargo target dir: {e}")),
-    };
-    let id_path = cache_id_path(&target_dir, &mod_name);
-    let wasm_path = cache_wasm_path(&target_dir, &mod_name);
-    let cache = std::fs::read_to_string(&id_path).ok();
+    let target_dir = stellar_build::get_target_dir(&manifest()?)
+        .map_err(|e| err(format!("could not determine the cargo target dir: {e}")))?;
+    let id_path = cache_id_path(&target_dir, &contract);
+    let wasm_path = cache_wasm_path(&target_dir, &contract);
+    let help = resolution_help(&contract, &id_path, &wasm_path);
 
     // 1. Resolve the deployed address (and, online, enforce the flag check).
-    let address = match resolve_address(
-        |k| env::var(k).ok(),
-        &evar,
-        cache,
-        no_registry,
-        || {
-            let addr = validate_contract_id(&fetch_contract_id(&name_raw)?)?;
-            let _ = std::fs::write(&id_path, &addr);
-            Ok(addr)
-        },
-    ) {
-        Ok(a) => a,
-        Err(msg) => return err(msg),
-    };
+    let cached_id = std::fs::read_to_string(&id_path).ok();
+    let address = resolve_address(cached_id.clone(), no_registry, &help, || {
+        let addr = validate_contract_id(&fetch_contract_id(&contract, &help)?)?;
+        if let Some(parent) = id_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&id_path, &addr);
+        Ok(addr)
+    })
+    .map_err(err)?;
 
-    // 2. Ensure the deployed contract's wasm is on disk for `contractimport!`.
-    if !wasm_path.exists() {
+    // 2. Ensure the deployed contract's wasm is on disk for `contractimport!`,
+    //    refetching if the name resolved to a different deployment than the
+    //    cached wasm came from.
+    if !wasm_path.exists() || wasm_is_stale(cached_id.as_deref(), &address, no_registry) {
         if no_registry {
-            return err(format!(
-                "STELLAR_NO_REGISTRY=1 but no cached wasm at {}. Build online once (which \
-                 fetches it) then rebuild offline.",
-                wasm_path.display()
-            ));
+            return Err(err(format!(
+                "STELLAR_NO_REGISTRY=1 but no cached wasm at {path}. Build online once (which \
+                 fetches it), or run `stellar contract fetch --id {address} --out-file {path}` \
+                 yourself.",
+                path = wasm_path.display(),
+            )));
         }
-        if let Err(msg) = fetch_wasm(&address, &wasm_path) {
-            return err(msg);
-        }
+        fetch_wasm(&address, &wasm_path).map_err(err)?;
     }
 
     // 3. Generate the client from that wasm and bind it to the address.
-    expand(&env, &mod_ident, &wasm_path.to_string_lossy(), &address).into()
+    Ok(expand(
+        &env,
+        &mod_ident,
+        &wasm_path.to_string_lossy(),
+        &address,
+    ))
 }
 
 #[cfg(test)]
@@ -320,35 +287,8 @@ mod helpers {
     // A real, valid contract strkey (from soroban-sdk docs).
     const VALID: &str = "CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322";
 
-    #[test]
-    fn mod_name_strips_prefix_and_hyphens() {
-        assert_eq!(
-            mod_name_from("unverified/registry_tansu_manager"),
-            "registry_tansu_manager"
-        );
-        assert_eq!(mod_name_from("guess-the-number"), "guess_the_number");
-        assert_eq!(mod_name_from("a/b/c"), "c");
-        assert_eq!(mod_name_from("registry"), "registry");
-    }
-
-    #[test]
-    fn reject_version_rejects_at() {
-        assert!(reject_version("our_dao").is_ok());
-        assert!(reject_version("unverified/our_dao").is_ok());
-        assert!(reject_version("our_dao@v1.0.0").is_err());
-        assert!(reject_version("our_dao@1.0.0").is_err());
-    }
-
-    #[test]
-    fn env_var_name_uppercases_and_sanitizes() {
-        assert_eq!(
-            env_var_name("registry_tansu_manager"),
-            "STELLAR_CONTRACT_ID_REGISTRY_TANSU_MANAGER"
-        );
-        assert_eq!(
-            env_var_name("guess_the_number"),
-            "STELLAR_CONTRACT_ID_GUESS_THE_NUMBER"
-        );
+    fn prefixed(s: &str) -> Prefixed {
+        s.parse().unwrap()
     }
 
     #[test]
@@ -362,22 +302,56 @@ mod helpers {
     }
 
     #[test]
-    fn cache_paths_are_target_siblings() {
+    fn cache_paths_are_namespaced_under_deployed() {
         assert_eq!(
-            cache_id_path(Path::new("target"), "our_dao"),
-            Path::new("target/our_dao.id")
+            cache_id_path(Path::new("target"), &prefixed("our-dao")),
+            Path::new("target/deployed/our_dao.id")
         );
         assert_eq!(
-            cache_wasm_path(Path::new("target"), "our_dao"),
-            Path::new("target/our_dao.wasm")
+            cache_wasm_path(Path::new("target"), &prefixed("our-dao")),
+            Path::new("target/deployed/our_dao.wasm")
         );
     }
 
     #[test]
-    fn check_mod_name_rejects_empty_identifiers() {
-        assert!(check_mod_name("our_dao").is_ok());
-        assert!(check_mod_name("").is_err());
-        assert!(check_mod_name(&mod_name_from("foo/")).is_err());
+    fn cache_paths_include_the_channel() {
+        // `unverified/foo` and `foo` are different contracts — different files.
+        assert_eq!(
+            cache_wasm_path(Path::new("target"), &prefixed("unverified/foo")),
+            Path::new("target/deployed/unverified__foo.wasm")
+        );
+        assert_ne!(
+            cache_wasm_path(Path::new("target"), &prefixed("unverified/foo")),
+            cache_wasm_path(Path::new("target"), &prefixed("foo")),
+        );
+    }
+
+    #[test]
+    fn wasm_staleness_tracks_address_changes_online_only() {
+        const OTHER: &str = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+        // Online: no prior id, or a different prior id → stale.
+        assert!(wasm_is_stale(None, VALID, false));
+        assert!(wasm_is_stale(Some(OTHER), VALID, false));
+        // Online: same id (even with cache whitespace) → fresh.
+        assert!(!wasm_is_stale(Some(VALID), VALID, false));
+        assert!(!wasm_is_stale(Some(&format!("{VALID}\n")), VALID, false));
+        // Offline: nothing to compare against — trust the cache.
+        assert!(!wasm_is_stale(None, VALID, true));
+        assert!(!wasm_is_stale(Some(OTHER), VALID, true));
+    }
+
+    #[test]
+    fn resolution_help_lists_repro_and_offline_paths() {
+        let lookup: Prefixed = "unverified/our-dao".parse().unwrap();
+        let help = resolution_help(
+            &lookup,
+            Path::new("target/deployed/unverified__our_dao.id"),
+            Path::new("target/deployed/unverified__our_dao.wasm"),
+        );
+        assert!(help.contains("stellar registry fetch-contract-id unverified/our-dao"));
+        assert!(help.contains("STELLAR_NO_REGISTRY=1"));
+        assert!(help.contains("target/deployed/unverified__our_dao.id"));
+        assert!(help.contains("target/deployed/unverified__our_dao.wasm"));
     }
 }
 
@@ -392,40 +366,30 @@ mod resolution {
     }
 
     #[test]
-    fn env_override_wins() {
-        let got = resolve_address(
-            |k| (k == "STELLAR_CONTRACT_ID_FOO").then(|| A.to_string()),
-            "STELLAR_CONTRACT_ID_FOO",
-            Some(B.to_string()),
-            false,
-            no_fetch,
-        );
-        assert_eq!(got.unwrap(), A);
-    }
-
-    #[test]
     fn offline_uses_cache() {
-        let got = resolve_address(|_| None, "X", Some(B.to_string()), true, no_fetch);
+        let got = resolve_address(Some(B.to_string()), true, "help", no_fetch);
         assert_eq!(got.unwrap(), B);
     }
 
     #[test]
-    fn offline_errors_without_env_or_cache() {
-        let got = resolve_address(|_| None, "X", None, true, no_fetch);
-        assert!(got.unwrap_err().contains("STELLAR_NO_REGISTRY"));
+    fn offline_errors_without_cache() {
+        let got = resolve_address(None, true, "try this instead", no_fetch);
+        let msg = got.unwrap_err();
+        assert!(msg.contains("STELLAR_NO_REGISTRY"), "{msg}");
+        assert!(msg.contains("try this instead"), "{msg}");
     }
 
     #[test]
     fn online_fetches_and_ignores_stale_cache() {
         // A cached id must NOT short-circuit the online fetch (+ flag check).
-        let got = resolve_address(
-            |_| None,
-            "X",
-            Some(B.to_string()),
-            false,
-            || Ok(A.to_string()),
-        );
+        let got = resolve_address(Some(B.to_string()), false, "help", || Ok(A.to_string()));
         assert_eq!(got.unwrap(), A);
+    }
+
+    #[test]
+    fn online_validates_fetched_id() {
+        let got = resolve_address(None, false, "help", || Ok("garbage".to_string()));
+        assert!(got.unwrap_err().contains("not a valid contract id"));
     }
 }
 
@@ -441,31 +405,44 @@ mod codegen {
     #[test]
     fn parses_env_and_string_name() {
         let input: Input = parse2(quote!(env, "unverified/our_dao")).unwrap();
-        assert_eq!(input.name_raw, "unverified/our_dao");
+        assert_eq!(input.name.raw(), "unverified/our_dao");
     }
 
     #[test]
     fn parses_env_and_ident_name() {
         let input: Input = parse2(quote!(env, registry)).unwrap();
-        assert_eq!(input.name_raw, "registry");
+        assert_eq!(input.name.raw(), "registry");
+    }
+
+    #[test]
+    fn version_suffix_is_rejected_by_the_type() {
+        let input: Input = parse2(quote!(env, "our_dao@1.0.0")).unwrap();
+        let err = input.name.parse_as::<Prefixed>().unwrap_err();
+        assert!(err.to_string().contains("version"), "{err}");
     }
 
     #[test]
     fn expand_emits_contractimport_and_bound_client() {
         let env: syn::Expr = parse2(quote!(env)).unwrap();
         let ident = Ident::new("our_dao", Span::call_site());
-        let out = expand(&env, &ident, "/tmp/target/stellar/local/our_dao.wasm", A).to_string();
+        let out = expand(
+            &env,
+            &ident,
+            "/tmp/target/stellar/local/deployed/our_dao.wasm",
+            A,
+        )
+        .to_string();
         assert!(
             out.contains("contractimport"),
             "generates types from the wasm: {out}"
         );
         assert!(
-            !out.contains("import_contract_client"),
-            "does NOT delegate to import_contract_client!: {out}"
-        );
-        assert!(
             out.contains("our_dao.wasm"),
             "references the fetched wasm: {out}"
+        );
+        assert!(
+            out.contains("use :: soroban_sdk"),
+            "binds the sdk through the extern prelude, not the caller's scope: {out}"
         );
         assert!(
             out.contains("our_dao :: Client :: new"),

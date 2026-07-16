@@ -5,19 +5,36 @@ use stellar_build::Network;
 use stellar_xdr as xdr;
 use xdr::WriteXdr;
 
-use quote::{format_ident, quote};
+use quote::quote;
+use syn::LitStr;
 
-pub fn parse_asset(str: &str) -> Result<(xdr::Asset, String), xdr::Error> {
-    if str == "native" || str == "xlm" {
-        return Ok((xdr::Asset::Native, str.to_string()));
+pub(crate) fn import_asset(input: proc_macro::TokenStream) -> syn::Result<TokenStream> {
+    let lit: LitStr = syn::parse(input)?;
+    parse_literal(&lit, &Network::passphrase_from_env())
+}
+
+/// Parse `"native"`, `"xlm"`, or `"CODE:ISSUER"` into an XDR asset plus the
+/// bare code (used as the generated module name).
+fn parse_asset(s: &str) -> Result<(xdr::Asset, String), String> {
+    if s == "native" || s == "xlm" {
+        return Ok((xdr::Asset::Native, s.to_string()));
     }
-    let split: Vec<&str> = str.splitn(2, ':').collect();
-    assert!(split.len() == 2, "invalid asset \"{str}\"");
-    let code = split[0];
-    let issuer: xdr::AccountId = split[1].parse()?;
-    let re = regex::Regex::new("^[[:alnum:]]{1,12}$").expect("regex failed");
-    assert!(re.is_match(code), "invalid asset \"{str}\"");
-    let asset_code: xdr::AssetCode = code.parse()?;
+    let Some((code, issuer)) = s.split_once(':') else {
+        return Err(format!(
+            "invalid asset `{s}`: expected `native`, `xlm`, or `CODE:ISSUER`"
+        ));
+    };
+    if code.is_empty() || code.len() > 12 || !code.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(format!(
+            "invalid asset code `{code}` in `{s}`: expected 1-12 ASCII letters or digits"
+        ));
+    }
+    let issuer: xdr::AccountId = issuer
+        .parse()
+        .map_err(|e| format!("invalid issuer account in `{s}`: {e}"))?;
+    let asset_code: xdr::AssetCode = code
+        .parse()
+        .map_err(|e| format!("invalid asset code `{code}` in `{s}`: {e}"))?;
     Ok((
         match asset_code {
             xdr::AssetCode::CreditAlphanum4(asset_code) => {
@@ -31,32 +48,40 @@ pub fn parse_asset(str: &str) -> Result<(xdr::Asset, String), xdr::Error> {
     ))
 }
 
-pub fn generate_asset_id(
+/// The Stellar Asset Contract id for `asset` on `network`, derived offline
+/// from the contract-id preimage — no network call needed.
+fn generate_asset_id(
     asset: &str,
     network: &Network,
-) -> Result<(stellar_strkey::Contract, String), xdr::Error> {
-    let (asset, code) = parse_asset(asset).unwrap();
+) -> Result<(stellar_strkey::Contract, String), String> {
+    let (asset, code) = parse_asset(asset)?;
     let network_id = xdr::Hash(network.id());
     let preimage = xdr::HashIdPreimage::ContractId(xdr::HashIdPreimageContractId {
         network_id,
-        contract_id_preimage: xdr::ContractIdPreimage::Asset(asset.clone()),
+        contract_id_preimage: xdr::ContractIdPreimage::Asset(asset),
     });
-    let preimage_xdr = preimage.to_xdr(xdr::Limits::none())?;
+    let preimage_xdr = preimage
+        .to_xdr(xdr::Limits::none())
+        .map_err(|e| format!("failed to encode the contract id preimage: {e}"))?;
     Ok((
         stellar_strkey::Contract(Sha256::digest(preimage_xdr).into()),
         code,
     ))
 }
 
-/// Generate the code to read the `STELLAR_NETWORK` environment variable
-/// and call the `generate_asset_id` function
-pub fn parse_literal(lit_str: &syn::LitStr, network: &Network) -> TokenStream {
-    let (contract_id, code) = generate_asset_id(&lit_str.value(), network).unwrap();
-    // let contract_id = format_ident!("\"{contract_id}\"");
-    let contract_id = contract_id.to_string();
-    let mod_name = format_ident!("{code}");
-    quote! {
-        #[allow(non_upper_case_globals)]
+/// Generate a module (named after the asset code) exposing the asset's
+/// contract id and token clients for the build-time network.
+pub(crate) fn parse_literal(lit_str: &LitStr, network: &Network) -> syn::Result<TokenStream> {
+    let err = |msg: String| syn::Error::new(lit_str.span(), msg);
+    let (contract_id, code) = generate_asset_id(&lit_str.value(), network).map_err(err)?;
+    let contract_id = format!("{contract_id}");
+    let mod_name: syn::Ident = syn::parse_str(&code).map_err(|_| {
+        err(format!(
+            "cannot use asset code `{code}` as a Rust module name"
+        ))
+    })?;
+    Ok(quote! {
+        #[allow(non_snake_case)]
         pub(crate) mod #mod_name {
             use super::*;
             /// Contract id for the Stellar Asset Contract
@@ -67,12 +92,12 @@ pub fn parse_literal(lit_str: &syn::LitStr, network: &Network) -> TokenStream {
             pub fn stellar_asset_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::StellarAssetClient<'a> {
                 soroban_sdk::token::StellarAssetClient::new(&env, &contract_id(env))
             }
-            /// Create a Stellar Asset Client for the asset which provides an admin interface
+            /// Create a Token Client for the asset which provides the standard token interface
             pub fn token_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::TokenClient<'a> {
                 soroban_sdk::token::TokenClient::new(&env, &contract_id(env))
             }
         }
-    }
+    })
 }
 
 #[cfg(test)]
@@ -87,6 +112,28 @@ mod test {
     ];
 
     const USDC: &str = "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
+
+    fn expected_module(mod_name: &str, contract_id: &str) -> TokenStream {
+        let mod_name: syn::Ident = syn::parse_str(mod_name).unwrap();
+        quote! {
+            #[allow(non_snake_case)]
+            pub(crate) mod #mod_name {
+                use super::*;
+                /// Contract id for the Stellar Asset Contract
+                pub fn contract_id(env: &soroban_sdk::Env) -> soroban_sdk::Address {
+                    soroban_sdk::Address::from_str(&env, #contract_id)
+                }
+                /// Create a Stellar Asset Client for the asset which provides an admin interface
+                pub fn stellar_asset_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::StellarAssetClient<'a> {
+                    soroban_sdk::token::StellarAssetClient::new(&env, &contract_id(env))
+                }
+                /// Create a Token Client for the asset which provides the standard token interface
+                pub fn token_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::TokenClient<'a> {
+                    soroban_sdk::token::TokenClient::new(&env, &contract_id(env))
+                }
+            }
+        }
+    }
 
     // Test for  parsing natve token
     #[test]
@@ -133,51 +180,22 @@ mod test {
     #[test]
     fn native_client() {
         let lit: syn::LitStr = syn::parse_quote!("native");
-        let expected = quote! {
-            #[allow (non_upper_case_globals)]
-            pub(crate) mod native {
-                use super::*;
-                /// Contract id for the Stellar Asset Contract
-                pub fn contract_id(env: &soroban_sdk::Env) -> soroban_sdk::Address {
-                    soroban_sdk::Address::from_str(&env, "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC")
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn stellar_asset_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::StellarAssetClient<'a> {
-                    soroban_sdk::token::StellarAssetClient::new(&env, &contract_id(env))
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn token_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::TokenClient<'a> {
-                    soroban_sdk::token::TokenClient::new(&env, &contract_id(env))
-                }
-            }
-        };
-        let generated = parse_literal(&lit, &Network::Testnet);
+        let expected = expected_module(
+            "native",
+            "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        );
+        let generated = parse_literal(&lit, &Network::Testnet).unwrap();
         assert_eq!(generated.to_string(), expected.to_string());
     }
 
     #[test]
     fn xlm_client() {
         let lit: syn::LitStr = syn::parse_quote!("xlm");
-        let expected = quote! {
-            #[allow (non_upper_case_globals)]
-            pub(crate) mod xlm {
-                use super::*;
-                /// Contract id for the Stellar Asset Contract
-                pub fn contract_id(env: &soroban_sdk::Env) -> soroban_sdk::Address {
-                    soroban_sdk::Address::from_str(&env, "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC")
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn stellar_asset_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::StellarAssetClient<'a> {
-                    soroban_sdk::token::StellarAssetClient::new(&env, &contract_id(env))
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn token_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::TokenClient<'a> {
-                    soroban_sdk::token::TokenClient::new(&env, &contract_id(env))
-                }
-
-            }
-        };
-        let generated = parse_literal(&lit, &Network::Testnet);
+        let expected = expected_module(
+            "xlm",
+            "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        );
+        let generated = parse_literal(&lit, &Network::Testnet).unwrap();
         assert_eq!(generated.to_string(), expected.to_string());
     }
 
@@ -185,26 +203,40 @@ mod test {
     fn usdc_client() {
         let lit: syn::LitStr =
             syn::parse_quote!("USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN");
-        let expected = quote! {
-            #[allow (non_upper_case_globals)]
-            pub(crate) mod USDC {
-                use super::*;
-                /// Contract id for the Stellar Asset Contract
-                pub fn contract_id(env: &soroban_sdk::Env) -> soroban_sdk::Address {
-                    soroban_sdk::Address::from_str(&env, "CA2E53VHFZ6YSWQIEIPBXJQGT6VW3VKWWZO555XKRQXYJ63GEBJJGHY7")
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn stellar_asset_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::StellarAssetClient<'a> {
-                    soroban_sdk::token::StellarAssetClient::new(&env, &contract_id(env))
-                }
-                /// Create a Stellar Asset Client for the asset which provides an admin interface
-                pub fn token_client<'a>(env: &soroban_sdk::Env) -> soroban_sdk::token::TokenClient<'a> {
-                    soroban_sdk::token::TokenClient::new(&env, &contract_id(env))
-                }
-
-            }
-        };
-        let generated = parse_literal(&lit, &Network::Testnet);
+        let expected = expected_module(
+            "USDC",
+            "CA2E53VHFZ6YSWQIEIPBXJQGT6VW3VKWWZO555XKRQXYJ63GEBJJGHY7",
+        );
+        let generated = parse_literal(&lit, &Network::Testnet).unwrap();
         assert_eq!(generated.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn errors_are_compile_errors_not_panics() {
+        let cases = [
+            "",                                                                         // empty
+            "USDC",                                                                     // no issuer
+            "USDC:not-a-key", // bad issuer
+            "toolongcodehere:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN", // >12 chars
+            "US-DC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN", // bad char
+        ];
+        for case in cases {
+            let lit = syn::LitStr::new(case, proc_macro2::Span::call_site());
+            assert!(
+                parse_literal(&lit, &Network::Testnet).is_err(),
+                "`{case}` should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn digit_leading_code_is_a_module_name_error() {
+        // `1INCH` is a legal asset code but not a legal Rust module name.
+        let lit = syn::LitStr::new(
+            "1INCH:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+            proc_macro2::Span::call_site(),
+        );
+        let err = parse_literal(&lit, &Network::Testnet).unwrap_err();
+        assert!(err.to_string().contains("module name"), "{err}");
     }
 }

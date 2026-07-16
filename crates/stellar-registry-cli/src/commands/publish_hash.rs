@@ -1,6 +1,6 @@
 use clap::Parser;
 use stellar_cli::{commands::contract::invoke, config};
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::commands::global;
 
@@ -12,7 +12,7 @@ pub struct Cmd {
 
     /// Wasm name
     #[arg(long)]
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
 
     /// Version string (e.g. "0.0.1")
     #[arg(long)]
@@ -51,7 +51,7 @@ impl Cmd {
         let args = [
             "publish_hash",
             "--wasm_name",
-            &self.wasm_name.name,
+            self.wasm_name.name(),
             "--author",
             &author,
             "--wasm_hash",
@@ -60,7 +60,7 @@ impl Cmd {
             &self.version,
         ];
 
-        let registry = Registry::new(&self.config, self.wasm_name.channel.as_deref()).await?;
+        let registry = Registry::new(&self.config, self.wasm_name.channel()).await?;
 
         registry.as_contract().invoke(&args, self.dry_run).await?;
 
@@ -68,7 +68,7 @@ impl Cmd {
             "{}Successfully published hash {} as {}@{}",
             if self.dry_run { "Dry Run: " } else { "" },
             self.wasm_hash,
-            self.wasm_name.name,
+            self.wasm_name.name(),
             self.version
         );
         Ok(())

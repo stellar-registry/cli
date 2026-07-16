@@ -56,7 +56,7 @@ the detailed command reference, configuration, and the mainnet workflow.
 |-------|---------|
 | [`stellar-registry-cli`](./crates/stellar-registry-cli) | The `stellar registry` CLI plugin |
 | [`stellar-registry-build`](./crates/stellar-registry-build) | Library for interacting with the registry at build time |
-| [`stellar-registry`](./crates/stellar-registry) | Shared registry types and the `import_contract_client!` macro |
+| [`stellar-registry`](./crates/stellar-registry) | The `import_contract!`, `import_contract_client!`, and `import_asset!` macros |
 
 ## What is the Contract Registry?
 

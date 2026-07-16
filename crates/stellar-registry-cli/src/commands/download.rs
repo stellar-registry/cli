@@ -2,14 +2,14 @@ use std::{io::Write, path::PathBuf};
 
 use clap::Parser;
 use stellar_cli::{commands::contract::invoke, xdr};
-use stellar_registry_build::named_registry::PrefixedName;
+use stellar_registry_build::name::Prefixed;
 
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     /// Name of published Wasm
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
 
     /// Version of published Wasm, if not specified, the latest version will be fetched
     #[arg(long)]
@@ -62,7 +62,7 @@ impl Cmd {
 
     pub async fn download_bytes(&self) -> Result<Vec<u8>, Error> {
         let registry = &self.wasm_name.registry(&self.config).await?;
-        let mut slop = vec!["fetch_hash", "--wasm-name", &self.wasm_name.name];
+        let mut slop = vec!["fetch_hash", "--wasm-name", &self.wasm_name.name()];
         let version = self.version.clone().map(|v| format!("\"{v}\""));
         if let Some(version) = version.as_deref() {
             slop.push("--version");
