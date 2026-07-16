@@ -1,4 +1,4 @@
-use crate::{Error, named_registry::PrefixedName, registry::Registry};
+use crate::{Error, name, registry::Registry};
 use sha2::{Digest, Sha256};
 use soroban_rpc as rpc;
 use stellar_build::Network;
@@ -88,7 +88,7 @@ pub enum ContractId {
     Resolved(stellar_strkey::Contract),
     Unresolved(stellar_cli::config::UnresolvedContract),
     PreHash(PreHashContractID),
-    FromRegistry(PrefixedName),
+    FromRegistry(name::Prefixed),
 }
 
 impl ContractId {
@@ -105,7 +105,7 @@ impl ContractId {
             ContractId::PreHash(pre_hash_contract_id) => {
                 pre_hash_contract_id.id(&network_passphrase.parse()?)
             }
-            ContractId::FromRegistry(PrefixedName { channel, name }) => {
+            ContractId::FromRegistry(name::Prefixed { channel, name }) => {
                 Registry::new(config, channel.as_deref())
                     .await?
                     .fetch_contract_id(name)

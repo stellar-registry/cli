@@ -3,7 +3,7 @@ use stellar_cli::config;
 use crate::{
     Error,
     contract::{Contract, PreHashContractID},
-    named_registry::PrefixedName,
+    name,
 };
 
 pub struct Registry(Contract);
@@ -11,10 +11,11 @@ pub struct Registry(Contract);
 impl Registry {
     pub async fn from_named_registry(
         config: &config::Args,
-        name: &PrefixedName,
+        name: &name::Prefixed,
     ) -> Result<Self, Error> {
         Self::new(config, name.channel.as_deref()).await
     }
+
     pub async fn new(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
         let contract = Self::verified(config)?;
         Ok(if let Some(name) = name {
@@ -57,7 +58,13 @@ impl Registry {
         use stellar_cli::xdr;
         let canonical: String = name
             .chars()
-            .map(|c| if c == '_' { '-' } else { c.to_ascii_lowercase() })
+            .map(|c| {
+                if c == '_' {
+                    '-'
+                } else {
+                    c.to_ascii_lowercase()
+                }
+            })
             .collect();
         let key = xdr::ScVal::Vec(Some(
             vec![

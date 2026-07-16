@@ -11,6 +11,7 @@ repository = "https://github.com/stellar-registry/cli"
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
 stellar-registry-macro = { path = "crates/stellar-registry-macro" }
+stellar-registry-build = { path = "crates/stellar-registry-build" }
 
 # Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
 # git for stellar-scaffold-test which is `publish = false`).

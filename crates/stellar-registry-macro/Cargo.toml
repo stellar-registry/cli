@@ -14,7 +14,12 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 stellar-build = { workspace = true }
+stellar-registry-build = { workspace = true }
 stellar-strkey = { workspace = true }
+stellar-xdr = { workspace = true }
+regex = "1.12.3"
+sha2 = { workspace = true }
+
 
 [lints]
 workspace = true

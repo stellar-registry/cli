@@ -19,6 +19,8 @@ stellar-build = { workspace = true }
 soroban-spec-tools = { workspace = true }
 soroban-rpc = { workspace = true }
 stellar-strkey = { workspace = true }
+syn = { workspace = true }
+
 
 thiserror = "2.0.17"
 tokio = { version = "1", features = ["full"] }
@@ -26,8 +28,11 @@ shlex = "1.1.0"
 heck = "0.5.0"
 ed25519-dalek = "2.2.0"
 sha2 = { workspace = true }
+proc-macro2 = { workspace = true, features = ["proc-macro"] }
+
 
 dotenvy = "0.15.7"
+semver = { version = "1.0.28", features = ["serde"] }
 # soroban-rpc = "=20.3.3"
 
 [dev-dependencies]

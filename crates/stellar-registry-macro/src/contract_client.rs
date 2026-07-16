@@ -4,7 +4,7 @@ use quote::quote;
 use std::env;
 use stellar_build::Network;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::{Ident, LitStr, parse_macro_input};
+use syn::{Ident, LitStr};
 
 pub(crate) fn manifest() -> std::path::PathBuf {
     std::path::PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("failed to find cargo manifest"))
@@ -38,18 +38,17 @@ pub(crate) fn manifest() -> std::path::PathBuf {
 /// - If the input tokens cannot be parsed as a valid identifier or string literal
 /// - If the directory path cannot be canonicalized
 /// - If the canonical path cannot be converted to a string
-#[proc_macro]
-pub fn import_contract_client(wasm_binary: TokenStream) -> TokenStream {
-    let WasmBinary { mod_name, file } = parse_macro_input!(wasm_binary as WasmBinary);
 
-    quote! {
+pub fn import_contract_client(wasm_binary: TokenStream) -> Result<proc_macro2::TokenStream> {
+    let WasmBinary { mod_name, file } = syn::parse::<WasmBinary>(wasm_binary)?;
+
+    Ok(quote! {
         pub(crate) mod #mod_name {
             #![allow(clippy::ref_option, clippy::too_many_arguments)]
             use super::soroban_sdk;
             soroban_sdk::contractimport!(file = #file);
         }
-    }
-    .into()
+    })
 }
 
 struct WasmBinary {

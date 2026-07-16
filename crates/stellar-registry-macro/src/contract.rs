@@ -177,29 +177,28 @@ fn fetch_wasm(address: &str, out_path: &Path) -> Result<(), String> {
     }
 }
 
+enum Name {
+    Ident(Ident),
+    LitStr(LitStr),
+}
+
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
 struct Input {
     env: Expr,
-    name_raw: String,
-    name_span: Span,
+    name: Name,
 }
 
 impl Parse for Input {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let env: Expr = input.parse()?;
         input.parse::<Token![,]>()?;
-        let name_span = input.span();
-        let name_raw = if input.peek(LitStr) {
-            input.parse::<LitStr>()?.value()
+        let name = if input.peek(LitStr) {
+            Name::LitStr(input.parse::<LitStr>()?)
         } else {
-            input.parse::<Ident>()?.to_string()
+            Name::Ident(input.parse::<Ident>()?)
         };
-        Ok(Self {
-            env,
-            name_raw,
-            name_span,
-        })
+        Ok(Self { env, name })
     }
 }
 
@@ -255,11 +254,7 @@ fn expand(
 /// upgraded, clear the cache (`cargo clean`) and rebuild.
 #[proc_macro]
 pub fn import_contract(input: TokenStream) -> TokenStream {
-    let Input {
-        env,
-        name_raw,
-        name_span,
-    } = parse_macro_input!(input as Input);
+    let Input { env, name } = parse_macro_input!(input as Input);
 
     let err =
         |msg: String| -> TokenStream { syn::Error::new(name_span, msg).to_compile_error().into() };
