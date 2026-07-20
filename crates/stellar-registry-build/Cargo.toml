@@ -1,6 +1,6 @@
 [package]
 name = "stellar-registry-build"
-version = "0.0.10"
+version = "0.0.9"
 edition = "2024"
 description = "A library using the registry at build time"
 license = "Apache-2.0"
@@ -28,6 +28,7 @@ cli = [
 [dependencies]
 stellar-cli = { workspace = true, optional = true, default-features = false, features = [] }
 stellar-build = { workspace = true, optional = true }
+stellar-registry-name = { workspace = true }
 
 soroban-rpc = { workspace = true, optional = true }
 stellar-strkey = { workspace = true, optional = true }

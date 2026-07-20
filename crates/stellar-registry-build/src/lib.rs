@@ -9,9 +9,10 @@
 pub mod contract;
 #[cfg(feature = "cli")]
 pub mod error;
-pub mod name;
 #[cfg(feature = "cli")]
 pub mod registry;
+
+pub mod name;
 
 #[cfg(feature = "cli")]
 pub use error::Error;

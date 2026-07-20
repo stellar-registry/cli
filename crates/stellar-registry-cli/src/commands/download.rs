@@ -2,7 +2,7 @@ use std::{io::Write, path::PathBuf};
 
 use clap::Parser;
 use stellar_cli::{commands::contract::invoke, xdr};
-use stellar_registry_build::name::Prefixed;
+use stellar_registry_build::name::{Prefixed, RegistryAccess};
 
 use crate::commands::global;
 

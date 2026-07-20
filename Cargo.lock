@@ -4255,13 +4255,14 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-build"
-version = "0.0.10"
+version = "0.0.9"
 dependencies = [
  "expect-test",
  "semver",
  "sha2 0.10.9",
  "soroban-cli",
  "stellar-build",
+ "stellar-registry-name",
  "stellar-rpc-client",
  "stellar-strkey 0.0.16",
  "thiserror 2.0.18",
@@ -4307,6 +4308,15 @@ dependencies = [
  "stellar-strkey 0.0.16",
  "stellar-xdr",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "stellar-registry-name"
+version = "0.0.1"
+dependencies = [
+ "expect-test",
+ "semver",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

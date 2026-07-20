@@ -13,7 +13,8 @@ stellar-registry-test = { path = "crates/stellar-registry-test" }
 stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.0.1" }
 # default-features = false so the proc-macro crate gets only the light `name`
 # module; network-facing consumers opt back in with features = ["cli"].
-stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.10", default-features = false }
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.9" }
+stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.0.1" }
 
 # Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
 # git for stellar-scaffold-test which is `publish = false`).

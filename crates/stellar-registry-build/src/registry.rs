@@ -8,13 +8,6 @@ use crate::{
 
 pub struct Registry(Contract);
 
-impl name::Prefixed {
-    /// Resolve the (sub)registry this name's channel points at.
-    pub async fn registry(&self, config: &config::Args) -> Result<Registry, Error> {
-        Registry::from_named_registry(config, self).await
-    }
-}
-
 impl Registry {
     pub async fn from_named_registry(
         config: &config::Args,

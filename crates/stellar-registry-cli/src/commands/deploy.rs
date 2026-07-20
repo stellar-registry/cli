@@ -12,7 +12,10 @@ use stellar_cli::{
     utils::rpc::get_remote_wasm_from_hash,
     xdr::{self, AccountId, InvokeContractArgs, ScSpecEntry, ScString, ScVal, Uint256},
 };
-use stellar_registry_build::{name::Prefixed, registry::Registry};
+use stellar_registry_build::{
+    name::{Prefixed, RegistryAccess},
+    registry::Registry,
+};
 
 use crate::commands::global;
 
