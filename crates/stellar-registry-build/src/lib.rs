@@ -1,18 +1,14 @@
 //! Registry interaction at build time.
 //!
-//! The `name` module (typed registry names) is always available and
-//! dependency-light so proc-macro crates can use it. Everything that talks to
-//! the network — `contract`, `registry`, `error` — sits behind the default
-//! `cli` feature, which pulls in the full stellar-cli stack.
+//! Talks to the on-chain registry over the network (`contract`, `registry`,
+//! `error`), pulling in the full stellar-cli stack. Proc-macro crates that only
+//! need typed registry names depend on the dependency-light `stellar-registry-name`
+//! crate directly (re-exported here via the `name` module).
 
-#[cfg(feature = "cli")]
 pub mod contract;
-#[cfg(feature = "cli")]
 pub mod error;
-#[cfg(feature = "cli")]
 pub mod registry;
 
 pub mod name;
 
-#[cfg(feature = "cli")]
 pub use error::Error;

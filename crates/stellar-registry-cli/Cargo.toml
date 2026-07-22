@@ -32,10 +32,7 @@ clap = { workspace = true, features = [
     "string",
 ] }
 stellar-cli = { workspace = true, default-features = false, features = [] }
-# Explicit features = ["cli"] rather than relying on default features: the
-# workspace dep pins default-features = false (for the proc-macro), which drops
-# build's default `cli` feature workspace-wide unless a consumer re-requests it.
-stellar-registry-build = { path = "../stellar-registry-build", version = "0.0.9", features = ["cli"] }
+stellar-registry-build = { path = "../stellar-registry-build", version = "0.0.9" }
 
 
 soroban-spec-tools = { workspace = true }

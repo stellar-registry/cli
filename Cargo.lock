@@ -4304,7 +4304,7 @@ dependencies = [
  "quote",
  "sha2 0.10.9",
  "stellar-build",
- "stellar-registry-build",
+ "stellar-registry-name",
  "stellar-strkey 0.0.16",
  "stellar-xdr",
  "syn 2.0.117",

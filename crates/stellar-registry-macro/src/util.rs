@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use proc_macro2::Span;
-use stellar_registry_build::name;
+use stellar_registry_name as name;
 use syn::{
     Ident, LitStr,
     parse::{Parse, ParseStream},
@@ -113,7 +113,7 @@ impl ProcMacroWrapper for syn::Result<proc_macro2::TokenStream> {
 mod tests {
     use super::*;
     use quote::quote;
-    use stellar_registry_build::name::{Prefixed, Versioned};
+    use stellar_registry_name::{Prefixed, Versioned};
 
     fn name(tokens: proc_macro2::TokenStream) -> Name {
         syn::parse2(tokens).unwrap()

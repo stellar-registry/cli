@@ -14,9 +14,9 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 stellar-build = { workspace = true }
-# name types only — the workspace pins default-features = false so this
-# proc-macro never drags the stellar-cli stack into consumer contract builds.
-stellar-registry-build = { workspace = true }
+# name types only — the dependency-light name crate keeps this proc-macro from
+# dragging the stellar-cli stack into consumer contract builds.
+stellar-registry-name = { workspace = true }
 stellar-strkey = { workspace = true }
 stellar-xdr = { workspace = true }
 sha2 = { workspace = true }

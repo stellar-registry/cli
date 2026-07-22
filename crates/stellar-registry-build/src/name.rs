@@ -1,6 +1,5 @@
 pub use stellar_registry_name::*;
 
-#[cfg(feature = "cli")]
 mod cli {
     use stellar_cli::config;
 
@@ -20,5 +19,4 @@ mod cli {
     }
 }
 
-#[cfg(feature = "cli")]
 pub use cli::RegistryAccess;

@@ -11,8 +11,6 @@ repository = "https://github.com/stellar-registry/cli"
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
 stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.0.1" }
-# default-features = false so the proc-macro crate gets only the light `name`
-# module; network-facing consumers opt back in with features = ["cli"].
 stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.9" }
 stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.0.1" }
 

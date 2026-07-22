@@ -10,7 +10,7 @@ use syn::{
     parse::{Parse, ParseStream},
 };
 
-use stellar_registry_build::name::Prefixed;
+use stellar_registry_name::Prefixed;
 
 use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
 

@@ -8,7 +8,7 @@ use syn::{
     parse::{Parse, ParseStream, Result},
 };
 
-use stellar_registry_build::name::Versioned;
+use stellar_registry_name::Versioned;
 
 use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
 
