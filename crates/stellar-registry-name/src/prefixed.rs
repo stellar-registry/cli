@@ -61,10 +61,10 @@ impl Prefixed {
         self.channel.as_deref()
     }
 
-    /// Rust module identifier derived from the name: `-` → `_`.
+    /// Rust module identifier derived from the name: `-` → `_` and chars to lowercase.
     #[must_use]
     pub fn mod_name(&self) -> String {
-        self.name.replace('-', "_")
+        self.canonical_name()
     }
 
     /// Canonical on-chain form of the bare name (see [`super::canonicalize`]).
