@@ -2,7 +2,7 @@
 name = "stellar-registry-name"
 version = "0.0.1"
 edition = "2024"
-description = "A library defining names used for the registry"
+description = "Standard name parsing and formatting for Stellar Registry"
 license = "Apache-2.0"
 repository = "https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-name"
 
