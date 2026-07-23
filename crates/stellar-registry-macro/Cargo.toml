@@ -2,7 +2,7 @@
 name = "stellar-registry-macro"
 version = "0.0.1"
 edition = "2024"
-description = "The import_contract! macro for the Stellar Registry"
+description = "Macro crate defining the proc-macros that get re-exported by stellar-registry"
 license = "Apache-2.0"
 repository.workspace = true
 

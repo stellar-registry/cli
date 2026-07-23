@@ -14,8 +14,7 @@ stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.
 stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.9" }
 stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.0.1" }
 
-# Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
-# git for stellar-scaffold-test which is `publish = false`).
+# Cross-repo deps from scaffold-stellar/cli
 stellar-build = "0.0.6"
 
 stellar-cli = { version = "27.0.0", package = "soroban-cli", default-features = false }
