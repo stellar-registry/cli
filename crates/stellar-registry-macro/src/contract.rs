@@ -262,7 +262,6 @@ pub(crate) fn import_contract(
                 "STELLAR_NO_REGISTRY=1 but no cached wasm at {path}. Build online once (which \
                  fetches it), or run `stellar contract fetch --id {address} \
                  --out-file {wasm_path}` yourself.",
-
             )));
         }
         fetch_wasm(&address, &wasm_path).map_err(err)?;
