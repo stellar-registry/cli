@@ -87,11 +87,9 @@ fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> Strin
         "{name_check}\
          - Run `stellar registry fetch-contract-id {lookup}` yourself and make sure the name \
          and network match your expectations.\n\
-         - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id} and \
-         {wasm} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
+         - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id_path} and \
+         {wasm_path} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
          `stellar contract fetch` for the wasm.",
-        id = id_path.display(),
-        wasm = wasm_path.display(),
     )
 }
 
