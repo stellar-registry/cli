@@ -81,7 +81,7 @@ fn wasm_is_stale(previously_cached_id: Option<&str>, address: &str, no_registry:
 /// hatch with the exact cache paths this build expects.
 fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> String {
     let name_check = explorer_url(&network_name())
-        .map(|url| format!("- Check that you got the name right: {url}\n"))
+        .map(|url| format!("- Check that you got the name right: {url}/contracts\n"))
         .unwrap_or_default();
     format!(
         "{name_check}\

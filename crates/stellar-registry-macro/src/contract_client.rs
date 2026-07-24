@@ -189,7 +189,7 @@ fn download_from_registry(
     let network = network_name();
     let name_check = explorer_url(&network).map_or_else(
         || "\n1. check the name & network and try again".to_string(),
-        |url| format!("\n1. check that you got the name right: {url}"),
+        |url| format!("\n1. check that you got the name right: {url}/wasms"),
     );
     let local_path = local_path.display().to_string();
     Err(syn::Error::new(

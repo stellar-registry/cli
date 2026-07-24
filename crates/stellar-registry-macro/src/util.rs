@@ -91,8 +91,8 @@ pub(crate) fn network_name() -> String {
 /// The registry explorer for the network, if one exists.
 pub(crate) fn explorer_url(network: &str) -> Option<&'static str> {
     match network {
-        "testnet" => Some("https://testnet.rgstry.xyz/contracts"),
-        "mainnet" => Some("https://stellar.rgstry.xyz/contracts"),
+        "testnet" => Some("https://testnet.rgstry.xyz"),
+        "mainnet" => Some("https://stellar.rgstry.xyz"),
         _ => None,
     }
 }
@@ -182,14 +182,8 @@ mod tests {
 
     #[test]
     fn explorer_urls() {
-        assert_eq!(
-            explorer_url("testnet"),
-            Some("https://testnet.rgstry.xyz/contracts")
-        );
-        assert_eq!(
-            explorer_url("mainnet"),
-            Some("https://stellar.rgstry.xyz/contracts")
-        );
+        assert_eq!(explorer_url("testnet"), Some("https://testnet.rgstry.xyz"));
+        assert_eq!(explorer_url("mainnet"), Some("https://stellar.rgstry.xyz"));
         assert_eq!(explorer_url("local"), None);
         assert_eq!(explorer_url("futurenet"), None);
     }
