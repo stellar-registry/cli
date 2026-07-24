@@ -18,7 +18,7 @@ pub(crate) fn manifest() -> syn::Result<PathBuf> {
     Ok(PathBuf::from(dir).join("Cargo.toml"))
 }
 
-/// A contract name argument: a bare ident (`registry`) or a string literal
+/// A contract or wasm name argument: a bare ident (`registry`) or a string literal
 /// (`"unverified/guess-the-number@1.0.0"`).
 pub(crate) enum Name {
     Ident(Ident),
