@@ -31,10 +31,9 @@ use util::ProcMacroWrapper as _;
 /// - **address** — `stellar registry fetch-contract-id`, cached at
 ///   `target/stellar/<network>/deployed/<mod_name>.id` (channel-prefixed
 ///   names cache as `<channel>__<mod_name>.id`). The online lookup **fails
-///   compilation if the contract is flagged as compromised** in the registry
-///   (with an up-to-date `stellar-registry-cli` plugin), and a cached id is
-///   deliberately ignored while online so a contract flagged after the first
-///   build cannot slip through a stale cache.
+///   compilation if the contract is flagged as compromised** in the registry,
+///   and a cached id is deliberately ignored while online so a contract flagged
+///   after the first build cannot slip through a stale cache.
 /// - **wasm** — the deployed contract's *own* wasm, via `stellar contract
 ///   fetch --id <address>`, cached beside the id. Client types are generated
 ///   from it, so a contract whose wasm was never published to the registry
@@ -54,7 +53,7 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// `target` directory if present, otherwise downloaded from the registry.
 ///
 /// ```ignore
-/// // Workspace contracts or registry names without hyphens:
+/// // Workspace wasms or registry names without hyphens:
 /// import_contract_client!(registry);
 ///
 /// // Hyphenated or channel-prefixed registry names:
