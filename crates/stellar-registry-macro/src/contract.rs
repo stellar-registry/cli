@@ -117,12 +117,12 @@ fn resolve_address(
     validate_contract_id(&fetch()?)
 }
 
-/// Shell out to the `stellar` CLI to look up a deployed contract's id by name.
-/// A current `stellar-registry-cli` refuses flagged contracts by default, so a
-/// flagged contract fails this build; plugins that predate the check resolve
-/// the id without it. Network selection is delegated to the CLI's own config
-/// (`STELLAR_NETWORK`). Failures are mapped to the most specific message the
-/// CLI's stderr allows.
+/// Shell out to `stellar-registry-cli` to look up a deployed contract's id by
+/// name. A current `stellar-registry-cli` refuses flagged contracts by default,
+/// so a flagged contract fails this build; plugins that predate the check
+/// resolve the id without it. Network selection is delegated to the CLI's own
+/// config (`STELLAR_NETWORK`). Failures are mapped to the most specific message
+/// the CLI's stderr allows.
 fn fetch_contract_id(lookup: &Prefixed, help: &str) -> Result<String, String> {
     let out = Command::new("stellar")
         .args(["registry", "fetch-contract-id"])
