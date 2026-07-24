@@ -21,8 +21,8 @@ soroban-rpc = { workspace = true }
 stellar-strkey = { workspace = true }
 sha2 = { workspace = true }
 
-thiserror = "2.0.17"
-semver = "1.0.28"
+thiserror = { workspace = true }
+semver = { workspace = true }
 
 [dev-dependencies]
 expect-test = "1.5"

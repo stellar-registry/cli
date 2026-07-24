@@ -11,7 +11,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 thiserror = { workspace = true }
-semver = "1.0.28"
+semver = { workspace = true }
 
 [dev-dependencies]
 expect-test = "1.5"

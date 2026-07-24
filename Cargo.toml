@@ -33,6 +33,7 @@ syn = { version = "2", features = ["full"] }
 cargo_metadata = "0.18.1"
 thiserror = "2.0.17"
 sha2 = "0.10.9"
+semver = "1.0.28"
 
 clap = "4.6.1"
 reqwest = { version = "0.12.9", default-features = false }
