@@ -93,9 +93,7 @@ fn resolve_wasm_path(wasm: &Versioned, mod_name: &Ident) -> Result<PathBuf> {
     }
 
     // 2. If STELLAR_NO_REGISTRY set to 1, error
-    if let Ok(v) = env::var("STELLAR_NO_REGISTRY")
-        && &v == "1"
-    {
+    if env::var("STELLAR_NO_REGISTRY").as_deref() == Ok("1") {
         return Err(syn::Error::new(
             span,
             format!(
