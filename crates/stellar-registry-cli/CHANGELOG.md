@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.23](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.0.22...stellar-registry-cli-v0.0.23) - 2026-07-27
+
+### Added
+
+- [**breaking**] `import_contract!` macro + consolidate registry macros (stellar-scaffold/cli#419) ([#17](https://github.com/stellar-registry/cli/pull/17))
+
 ## [0.0.22](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.0.21...stellar-registry-cli-v0.0.22) - 2026-07-06
 
 ### Added
