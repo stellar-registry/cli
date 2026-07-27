@@ -1,6 +1,6 @@
 [package]
 name = "stellar-registry-macro"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 description = "Macro crate defining the proc-macros that get re-exported by stellar-registry"
 license = "Apache-2.0"
