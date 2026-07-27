@@ -64,7 +64,7 @@ impl Prefixed {
     /// Rust module identifier derived from the name: `-` → `_` and chars to lowercase.
     #[must_use]
     pub fn mod_name(&self) -> String {
-        self.canonical_name()
+        self.name.replace('-', "_").to_ascii_lowercase()
     }
 
     /// Canonical on-chain form of the bare name (see [`super::canonicalize`]).

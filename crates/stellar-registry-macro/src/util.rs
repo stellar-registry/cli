@@ -168,6 +168,13 @@ mod tests {
     }
 
     #[test]
+    fn mod_ident_lowercases() {
+        let p: Prefixed = "Oh-No-How-Even".parse().unwrap();
+        let ident = mod_ident(&p, Span::call_site()).unwrap();
+        assert_eq!(ident.to_string(), "oh_no_how_even");
+    }
+
+    #[test]
     fn mod_ident_errors_instead_of_panicking_on_digit_start() {
         let p: Prefixed = "123bad".parse().unwrap();
         let err = mod_ident(&p, Span::call_site()).unwrap_err();

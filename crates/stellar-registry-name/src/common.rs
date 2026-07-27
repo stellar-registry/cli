@@ -2,15 +2,7 @@
 /// The registry contract stores names in this form.
 #[must_use]
 pub fn canonicalize(name: &str) -> String {
-    name.chars()
-        .map(|c| {
-            if c == '_' {
-                '-'
-            } else {
-                c.to_ascii_lowercase()
-            }
-        })
-        .collect()
+    name.replace('_', "-").to_ascii_lowercase()
 }
 
 #[cfg(test)]
