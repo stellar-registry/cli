@@ -98,8 +98,7 @@ fn resolve_wasm_path(wasm: &Versioned, mod_name: &Ident) -> Result<PathBuf> {
             span,
             format!(
                 "No local wasm found and STELLAR_NO_REGISTRY=1 so not checking Registry. \
-                Download manually with `stellar registry download {}`",
-                wasm.name()
+                Download manually with `stellar registry download \"{wasm}\"`",
             ),
         ));
     }

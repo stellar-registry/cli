@@ -87,9 +87,11 @@ fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> Strin
         "{name_check}\
          - Run `stellar registry fetch-contract-id {lookup}` yourself and make sure the name \
          and network match your expectations.\n\
-         - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id_path} and \
-         {wasm_path} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
+         - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id} and \
+         {wasm} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
          `stellar contract fetch` for the wasm.",
+        id = id_path.display(),
+        wasm = wasm_path.display(),
     )
 }
 
@@ -261,7 +263,8 @@ pub(crate) fn import_contract(
             return Err(err(format!(
                 "STELLAR_NO_REGISTRY=1 but no cached wasm at {path}. Build online once (which \
                  fetches it), or run `stellar contract fetch --id {address} \
-                 --out-file {wasm_path}` yourself.",
+                 --out-file {path}` yourself.",
+                path = wasm_path.display(),
             )));
         }
         fetch_wasm(&address, &wasm_path).map_err(err)?;
