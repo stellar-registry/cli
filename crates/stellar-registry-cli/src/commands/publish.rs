@@ -8,7 +8,7 @@ use stellar_cli::{
     config,
     xdr::{ScMetaEntry, ScMetaV0},
 };
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::{commands::global, github::Fetcher};
 
@@ -32,7 +32,7 @@ pub struct Cmd {
     pub author: Option<String>,
     /// Wasm name, if not provided, will try to extract from contract metadata
     #[arg(long, requires = "from_github")]
-    pub wasm_name: Option<PrefixedName>,
+    pub wasm_name: Option<Prefixed>,
     /// Wasm binary version, if not provided, will try to extract from contract metadata
     #[arg(long, requires = "from_github")]
     pub binver: Option<String>,
@@ -75,9 +75,15 @@ pub enum Error {
 impl Cmd {
     pub async fn get_wasm_bytes(&self) -> Result<Vec<u8>, Error> {
         if let Some(github) = &self.wasm_args.from_github {
+            let package = self
+                .wasm_name
+                .as_ref()
+                .ok_or(Error::WasmNameMissing)?
+                .name()
+                .to_string();
             Ok(Fetcher::new(
                 github,
-                &self.wasm_name.as_ref().ok_or(Error::WasmNameMissing)?.name,
+                &package,
                 self.binver.as_ref().ok_or(Error::BinverMissing)?,
             )
             .fetch()
@@ -120,8 +126,8 @@ impl Cmd {
         }));
 
         // Add wasm_name if specified
-        if let Some(PrefixedName { name, .. }) = self.wasm_name.as_ref() {
-            args.push(format!("--wasm_name={name}"));
+        if let Some(wasm_name) = self.wasm_name.as_ref() {
+            args.push(format!("--wasm_name={}", wasm_name.name()));
         }
 
         // Add version if specified
@@ -138,7 +144,7 @@ impl Cmd {
         args.push(format!("--author={author}"));
         let registry = Registry::new(
             &self.config,
-            self.wasm_name.as_ref().and_then(|p| p.channel.as_deref()),
+            self.wasm_name.as_ref().and_then(|p| p.channel()),
         )
         .await?;
         registry

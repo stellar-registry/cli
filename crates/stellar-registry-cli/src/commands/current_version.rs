@@ -1,13 +1,13 @@
 use clap::Parser;
 use stellar_cli::commands::contract::invoke;
-use stellar_registry_build::named_registry::PrefixedName;
+use stellar_registry_build::name::{Prefixed, RegistryAccess};
 
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
     /// Name of published Wasm
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
 
     #[command(flatten)]
     pub config: global::Args,
@@ -32,7 +32,7 @@ impl Cmd {
 
     pub async fn current_version(&self) -> Result<String, Error> {
         let registry = self.wasm_name.registry(&self.config).await?;
-        let slop = ["current_version", "--wasm-name", &self.wasm_name.name];
+        let slop = ["current_version", "--wasm-name", self.wasm_name.name()];
         let raw = registry
             .as_contract()
             .invoke_with_result(&slop, true)

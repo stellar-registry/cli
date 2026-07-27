@@ -1,0 +1,25 @@
+[package]
+name = "stellar-registry-macro"
+version = "0.0.1"
+edition = "2024"
+description = "Macro crate defining the proc-macros that get re-exported by stellar-registry"
+license = "Apache-2.0"
+repository.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+stellar-build = { workspace = true }
+# name types only — the dependency-light name crate keeps this proc-macro from
+# dragging the stellar-cli stack into consumer contract builds.
+stellar-registry-name = { workspace = true }
+stellar-strkey = { workspace = true }
+stellar-xdr = { workspace = true }
+sha2 = { workspace = true }
+
+[lints]
+workspace = true

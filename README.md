@@ -56,7 +56,10 @@ the detailed command reference, configuration, and the mainnet workflow.
 |-------|---------|
 | [`stellar-registry-cli`](./crates/stellar-registry-cli) | The `stellar registry` CLI plugin |
 | [`stellar-registry-build`](./crates/stellar-registry-build) | Library for interacting with the registry at build time |
-| [`stellar-registry`](./crates/stellar-registry) | Shared registry types and the `import_contract_client!` macro |
+| [`stellar-registry-macro`](./crates/stellar-registry-macro) | Macro crate defining procedural macros `import_contract!`, `import_contract_client!`, and `import_asset`. [Proc-macro crates are special](https://www.reddit.com/r/rust/comments/tuxawv/why_do_procedural_macros_have_to_be_defined_in_a/) and need to only export proc-macros. |
+| [`stellar-registry`](./crates/stellar-registry) | For use in Stellar smart contracts. Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro`. Might export more behavior later. |
+| [`stellar-registry-name`](./crates/stellar-registry-name)| Defines standard name parsing/formatting used by `stellar-registry-macro` and `stellar-registry-cli`. |
+| [`stellar-registry-test`](./crates/stellar-registry-test)| Unpublished testing tools used throughout this monorepo as a dev-dependency |
 
 ## What is the Contract Registry?
 

@@ -10,11 +10,12 @@ repository = "https://github.com/stellar-registry/cli"
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
+stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.0.1" }
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.9" }
+stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.0.1" }
 
-# Cross-repo deps from scaffold-stellar/cli (crates.io for published libs,
-# git for stellar-scaffold-test which is `publish = false`).
+# Cross-repo deps from scaffold-stellar/cli
 stellar-build = "0.0.6"
-stellar-scaffold-macro = "0.8.14"
 
 stellar-cli = { version = "27.0.0", package = "soroban-cli", default-features = false }
 soroban-rpc = { package = "stellar-rpc-client", version = "27.0.0" }
@@ -25,9 +26,14 @@ admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "c4624cc74291
 stellar-xdr = "=27.0.0"
 stellar-strkey = "0.0.16"
 
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2", features = ["full"] }
+
 cargo_metadata = "0.18.1"
 thiserror = "2.0.17"
 sha2 = "0.10.9"
+semver = "1.0.28"
 
 clap = "4.6.1"
 reqwest = { version = "0.12.9", default-features = false }

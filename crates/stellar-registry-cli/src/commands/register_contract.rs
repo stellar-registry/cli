@@ -1,6 +1,6 @@
 use clap::Parser;
 use stellar_cli::{commands::contract::invoke, config};
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::commands::global;
 
@@ -9,7 +9,7 @@ pub struct Cmd {
     /// Name to register for the contract. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long)]
-    pub contract_name: PrefixedName,
+    pub contract_name: Prefixed,
 
     /// Contract address to register
     #[arg(long)]
@@ -48,21 +48,21 @@ impl Cmd {
         let args = [
             "register_contract",
             "--contract_name",
-            &self.contract_name.name,
+            self.contract_name.name(),
             "--contract_address",
             &self.contract_address,
             "--owner",
             &owner,
         ];
 
-        let registry = Registry::new(&self.config, self.contract_name.channel.as_deref()).await?;
+        let registry = Registry::new(&self.config, self.contract_name.channel()).await?;
 
         registry.as_contract().invoke(&args, self.dry_run).await?;
 
         eprintln!(
             "{}Successfully registered contract '{}' at {}",
             if self.dry_run { "Dry Run: " } else { "" },
-            self.contract_name.name,
+            self.contract_name.name(),
             self.contract_address
         );
         Ok(())

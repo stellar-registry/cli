@@ -12,7 +12,10 @@ use stellar_cli::{
     utils::rpc::get_remote_wasm_from_hash,
     xdr::{self, AccountId, InvokeContractArgs, ScSpecEntry, ScString, ScVal, Uint256},
 };
-use stellar_registry_build::{named_registry::PrefixedName, registry::Registry};
+use stellar_registry_build::{
+    name::{Prefixed, RegistryAccess},
+    registry::Registry,
+};
 
 use crate::commands::global;
 
@@ -23,11 +26,11 @@ pub struct Cmd {
     /// Name of contract to be deployed. Can use prefix of not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long, visible_alias = "deploy-as")]
-    pub contract_name: PrefixedName,
+    pub contract_name: Prefixed,
     /// Name of published contract to deploy from. Can use prefix of not using verified registry.
     /// E.g. `unverified/<name>`
     #[arg(long)]
-    pub wasm_name: PrefixedName,
+    pub wasm_name: Prefixed,
     /// Arguments for constructor
     #[arg(last = true, id = "CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -90,7 +93,7 @@ impl Cmd {
             Ok(contract_id) => {
                 println!(
                     "Contract {} deployed successfully to {contract_id}",
-                    self.contract_name.name
+                    self.contract_name.name()
                 );
                 Ok(())
             }
@@ -105,7 +108,7 @@ impl Cmd {
     pub async fn hash(&self, registry: &Registry) -> Result<xdr::Hash, Error> {
         let res = registry
             .as_contract()
-            .invoke_with_result(&["fetch_hash", "--wasm_name", &self.wasm_name.name], true)
+            .invoke_with_result(&["fetch_hash", "--wasm_name", self.wasm_name.name()], true)
             .await?;
         let res = res.trim_matches('"');
         Ok(res.parse().unwrap())
@@ -143,13 +146,11 @@ impl Cmd {
             None
         };
         let mut call_args: Vec<ScVal> = vec![
-            ScVal::String(ScString(self.wasm_name.name.clone().try_into().unwrap())),
+            ScVal::String(ScString(self.wasm_name.name().try_into().unwrap())),
             self.version.clone().map_or(ScVal::Void, |s| {
                 ScVal::String(ScString(s.try_into().unwrap()))
             }),
-            ScVal::String(ScString(
-                self.contract_name.name.clone().try_into().unwrap(),
-            )),
+            ScVal::String(ScString(self.contract_name.name().try_into().unwrap())),
             ScVal::Address(xdr::ScAddress::Account(AccountId(
                 xdr::PublicKey::PublicKeyTypeEd25519(Uint256(key.verifying_key().to_bytes())),
             ))),
@@ -163,11 +164,7 @@ impl Cmd {
             // the trusted root pinned at construction, so we pass the name
             // rather than an address. Root has no prefix — its own name in
             // root storage is "registry".
-            let subregistry_name = self
-                .wasm_name
-                .channel
-                .clone()
-                .unwrap_or_else(|| "registry".to_string());
+            let subregistry_name = self.wasm_name.channel().unwrap_or("registry");
             call_args.push(ScVal::String(ScString(
                 subregistry_name.try_into().unwrap(),
             )));

@@ -15,20 +15,14 @@ crate-type = ["rlib"]
 [dependencies]
 stellar-cli = { workspace = true, default-features = false, features = [] }
 stellar-build = { workspace = true }
+stellar-registry-name = { workspace = true }
 
-soroban-spec-tools = { workspace = true }
 soroban-rpc = { workspace = true }
 stellar-strkey = { workspace = true }
-
-thiserror = "2.0.17"
-tokio = { version = "1", features = ["full"] }
-shlex = "1.1.0"
-heck = "0.5.0"
-ed25519-dalek = "2.2.0"
 sha2 = { workspace = true }
 
-dotenvy = "0.15.7"
-# soroban-rpc = "=20.3.3"
+thiserror = { workspace = true }
+semver = { workspace = true }
 
 [dev-dependencies]
 expect-test = "1.5"

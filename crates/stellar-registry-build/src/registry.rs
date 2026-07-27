@@ -3,7 +3,7 @@ use stellar_cli::config;
 use crate::{
     Error,
     contract::{Contract, PreHashContractID},
-    named_registry::PrefixedName,
+    name,
 };
 
 pub struct Registry(Contract);
@@ -11,10 +11,11 @@ pub struct Registry(Contract);
 impl Registry {
     pub async fn from_named_registry(
         config: &config::Args,
-        name: &PrefixedName,
+        name: &name::Prefixed,
     ) -> Result<Self, Error> {
-        Self::new(config, name.channel.as_deref()).await
+        Self::new(config, name.channel()).await
     }
+
     pub async fn new(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
         let contract = Self::verified(config)?;
         Ok(if let Some(name) = name {
@@ -28,7 +29,23 @@ impl Registry {
         })
     }
 
+    /// Fetch the deployed contract id for `name`, refusing to return it if the
+    /// contract is flagged as compromised in the registry. Callers that really
+    /// want a flagged id (e.g. behind a user-facing `--force`) must say so with
+    /// [`Self::fetch_contract_id_unchecked`].
     pub async fn fetch_contract_id(&self, name: &str) -> Result<stellar_strkey::Contract, Error> {
+        if self.is_contract_flagged(name).await? {
+            return Err(Error::ContractFlagged(name.to_string()));
+        }
+        self.fetch_contract_id_unchecked(name).await
+    }
+
+    /// Fetch the deployed contract id for `name` without the compromised-flag
+    /// check. Dangerous: prefer [`Self::fetch_contract_id`].
+    pub async fn fetch_contract_id_unchecked(
+        &self,
+        name: &str,
+    ) -> Result<stellar_strkey::Contract, Error> {
         let slop = ["fetch_contract_id", "--contract-name", name];
         let contract_id = self.0.invoke_with_result(&slop, true).await?;
         contract_id
@@ -38,10 +55,52 @@ impl Registry {
     }
 
     pub async fn fetch_contract(&self, name: &str) -> Result<Contract, Error> {
+        // Unchecked on purpose: this resolves channel/subregistry contracts
+        // during `Registry::new`, before any user-facing `--force` flag can be
+        // consulted. The flagged-contract rejection is scoped to leaf
+        // contract-id lookups via `fetch_contract_id`.
         Ok(Contract::new(
-            self.fetch_contract_id(name).await?,
+            self.fetch_contract_id_unchecked(name).await?,
             self.0.config(),
         ))
+    }
+
+    /// Is the named contract flagged as compromised in this (sub)registry?
+    ///
+    /// There is no on-chain getter for the flag, so read the raw persistent
+    /// `ContractEntry` ledger entry directly. It is keyed by
+    /// `(Symbol("CR"), <canonical name>)` and stored as a 2-tuple when
+    /// unflagged and a 3-tuple (with a trailing `Void` sentinel) when flagged —
+    /// the vec length carries the flag. Mirrors the registry contract's
+    /// `ContractKey` / `ContractEntry` (stellar-registry/contracts
+    /// `src/storage.rs`); coupled to that encoding by design.
+    pub async fn is_contract_flagged(&self, name: &str) -> Result<bool, Error> {
+        use stellar_cli::xdr;
+        let canonical = name::canonicalize(name);
+        let key = xdr::ScVal::Vec(Some(
+            vec![
+                xdr::ScVal::Symbol(xdr::ScSymbol("CR".try_into()?)),
+                xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
+            ]
+            .try_into()?,
+        ));
+        let ledger_key = xdr::LedgerKey::ContractData(xdr::LedgerKeyContractData {
+            contract: self.0.sc_address(),
+            key,
+            durability: xdr::ContractDataDurability::Persistent,
+        });
+        let entries = self
+            .0
+            .rpc_client()?
+            .get_full_ledger_entries(&[ledger_key])
+            .await?
+            .entries;
+        Ok(entries.into_iter().any(|e| match e.val {
+            xdr::LedgerEntryData::ContractData(cd) => {
+                matches!(cd.val, xdr::ScVal::Vec(Some(v)) if v.len() == 3)
+            }
+            _ => false,
+        }))
     }
 
     pub fn as_contract(&self) -> &Contract {
