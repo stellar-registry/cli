@@ -10,9 +10,9 @@ repository = "https://github.com/stellar-registry/cli"
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
-stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.0.1" }
-stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.0.10" }
-stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.0.1" }
+stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.1.0" }
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.1.0" }
+stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.1.0" }
 
 # Cross-repo deps from scaffold-stellar/cli
 stellar-build = "0.0.6"

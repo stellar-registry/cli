@@ -1,6 +1,6 @@
 [package]
 name = "stellar-registry-name"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 description = "Standard name parsing and formatting for Stellar Registry"
 license = "Apache-2.0"
