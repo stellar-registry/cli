@@ -42,7 +42,7 @@ reqwest = { version = "0.12.9", default-features = false }
 result_large_err = "allow"
 
 # Size-optimized profile for building test-fixture contracts (hello_v1/v2) to
-# wasm via `stellar contract build --profile contracts`. Mirrors the profile in
+# wasm via `stellar scaffold build --profile contracts`. Mirrors the profile in
 # stellar-registry/contracts so fixtures build the same way as the registry.
 [profile.contracts]
 inherits = "release"

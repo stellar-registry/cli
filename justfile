@@ -35,10 +35,10 @@ test-integration: build
 
 # Print where to get the wasms the integration tests load (registry.wasm + hello_v1/v2.wasm)
 fetch-test-wasms:
-    @echo "Integration tests load these from target/stellar/local:"
-    @echo "  - registry.wasm        (from the stellar-registry/contracts release)"
-    @echo "  - hello_v1.wasm        (from the stellar-scaffold/cli test fixtures)"
-    @echo "  - hello_v2.wasm        (from the stellar-scaffold/cli test fixtures)"
+    stellar scaffold build --profile contracts
+    @mkdir -p target/stellar/local
+    @cp target/wasm32v1-none/contracts/*.wasm target/stellar/local/
+    @cp ../contracts/target/wasm32v1-none/release/*.wasm target/stellar/local/ || echo "For integration tests, you need to copy your `stellar-registry/contracts` project's `registry.wasm` to `target/stellar/local`"
 
 [private]
 _test-integration package filter ci="false":

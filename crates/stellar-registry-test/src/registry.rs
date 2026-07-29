@@ -290,8 +290,9 @@ impl RandomizedWasm {
         Self(PathBuf::from(name))
     }
     pub fn randomize(&self, temp_dir: &Path) -> PathBuf {
-        let mut wasm_bytes = fs::read(find_stellar_wasm_dir().unwrap().join(&self.0))
-            .expect("Failed to read wasm file");
+        let path = &find_stellar_wasm_dir().unwrap().join(&self.0);
+        let mut wasm_bytes = fs::read(path)
+            .unwrap_or_else(|_| panic!("Failed to read wasm file {}", path.display()));
         wasm_gen::write_custom_section(
             &mut wasm_bytes,
             "test_section",
