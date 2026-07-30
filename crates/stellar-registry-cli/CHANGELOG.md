@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.0...stellar-registry-cli-v0.1.1) - 2026-07-30
+
+### Other
+
+- test fetch_contract_id default fails for flagged ([#60](https://github.com/stellar-registry/cli/pull/60))
+
 ## [0.1.0](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.0.22...stellar-registry-cli-v0.1.0) - 2026-07-27
 
 ### Added
