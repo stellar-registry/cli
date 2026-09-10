@@ -13,6 +13,19 @@ pub fn your_fn(env: &Env) {
 }
 ```
 
+## Stellar Asset Contracts (SACs) and XLM
+
+`import_contract!` also accepts an asset name — `xlm`/`native`, or `"CODE:ISSUER"` — instead of a registered contract name, resolving the Stellar Asset Contract id offline (no registry lookup, no network access) and binding the standard token client to it:
+
+```rs
+pub fn your_fn(env: &Env) {
+    let xlm = stellar_registry::import_contract!(env, xlm);
+    xlm.transfer(&from, &to, &amount);
+}
+```
+
+A registered name that itself points at a SAC (e.g. `"circle/usdc"`) works the same way, going through the registry to resolve the address and falling back to the same token client instead of trying (and failing) to fetch a wasm that doesn't exist for a built-in asset contract.
+
 # Import wasm with `import_contract_client!`
 
 Import a wasm (https://stellar.rgstry.xyz/wasms), which defines only behavior. You can optionally include a version, otherwise it fetches the latest. You need to instantiate with a contract ID.

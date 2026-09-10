@@ -12,6 +12,7 @@ use syn::{
 
 use stellar_registry_name::Prefixed;
 
+use crate::asset;
 use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
@@ -28,6 +29,16 @@ impl Parse for Input {
         let name: Name = input.parse()?;
         Ok(Self { env, name })
     }
+}
+
+/// Whether `raw` names an asset rather than a registered contract: exactly
+/// `native`/`xlm`, or a `CODE:ISSUER` literal. Colons are never valid in a
+/// registry name (`Prefixed` rejects them outright), so `raw.contains(':')`
+/// can't collide with a real registered name — it's safe to route straight to
+/// [`asset::parse_asset`] and get its more specific error messages instead of
+/// `Prefixed`'s generic "invalid character" one.
+fn is_asset_syntax(raw: &str) -> bool {
+    raw == "native" || raw == "xlm" || raw.contains(':')
 }
 
 /// Validate a `C…` contract strkey; return it trimmed.
@@ -66,6 +77,18 @@ fn cache_wasm_path(target_dir: &Path, contract: &Prefixed) -> PathBuf {
         .join("deployed")
         .join(cache_stem(contract))
         .with_extension("wasm")
+}
+
+/// `<target_dir>/deployed/<stem>.sac` — marks a registry name as resolving to
+/// a Stellar Asset Contract (no wasm exists to fetch), holding the address it
+/// was recorded for. Lets a rebuild skip straight to the token-client codegen
+/// instead of re-running `stellar contract fetch` only to hit the same
+/// "no downloadable code binary" failure every time.
+fn cache_sac_marker_path(target_dir: &Path, contract: &Prefixed) -> PathBuf {
+    target_dir
+        .join("deployed")
+        .join(cache_stem(contract))
+        .with_extension("sac")
 }
 
 /// The cached wasm belongs to a specific deployment. Online, if the freshly
@@ -166,6 +189,13 @@ fn fetch_contract_id(lookup: &Prefixed, help: &str) -> Result<String, String> {
     ))
 }
 
+/// Whether a `fetch_wasm` failure is `stellar-cli`'s `ContractIsStellarAsset`
+/// error: the address is a network built-in asset contract (a SAC), which has
+/// no downloadable wasm by design, rather than some other fetch problem.
+fn is_stellar_asset_fetch_error(fetch_err: &str) -> bool {
+    fetch_err.contains("network built-in asset contract")
+}
+
 /// Shell out to `stellar contract fetch` to download a *deployed* contract's own
 /// wasm by address (not a registry-published wasm-name) into `out_path`.
 fn fetch_wasm(address: &str, out_path: &Path) -> Result<(), String> {
@@ -217,6 +247,26 @@ fn expand(
     }
 }
 
+/// Emit a block expression binding the SDK's own standard-interface
+/// `token::TokenClient` to `address` — for a Stellar Asset Contract, which has
+/// no bespoke wasm to run `contractimport!` on. Its interface is always the
+/// same, so no codegen from a fetched wasm is needed, unlike [`expand`].
+/// (`token::Client` is a deprecated alias for `TokenClient` — used by name
+/// here, as `import_asset!`'s codegen in `asset.rs` already does, so expanded
+/// code doesn't trip a deprecation warning.)
+fn expand_token_client(env: &Expr, address: &str) -> proc_macro2::TokenStream {
+    quote! {
+        {
+            use ::soroban_sdk;
+            let __env: &::soroban_sdk::Env = #env;
+            ::soroban_sdk::token::TokenClient::new(
+                __env,
+                &::soroban_sdk::Address::from_str(__env, #address),
+            )
+        }
+    }
+}
+
 pub(crate) fn import_contract(
     input: proc_macro::TokenStream,
 ) -> syn::Result<proc_macro2::TokenStream> {
@@ -233,6 +283,17 @@ pub(crate) fn import_contract(
              (got {raw:?}). Use just the contract name, e.g. `import_contract!(env, our_dao)`."
         )));
     }
+
+    // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) resolves offline to a
+    // Stellar Asset Contract id — no registry lookup, no cache files, works
+    // the same under STELLAR_NO_REGISTRY=1 since there's nothing to fetch.
+    if is_asset_syntax(&raw) {
+        let (contract_id, _code) =
+            asset::generate_asset_id(&raw, &stellar_build::Network::passphrase_from_env())
+                .map_err(err)?;
+        return Ok(expand_token_client(&env, &contract_id.to_string()));
+    }
+
     let contract: Prefixed = name.parse_as()?;
     let mod_ident = mod_ident(&contract, span)?;
 
@@ -241,6 +302,7 @@ pub(crate) fn import_contract(
         .map_err(|e| err(format!("could not determine the cargo target dir: {e}")))?;
     let id_path = cache_id_path(&target_dir, &contract);
     let wasm_path = cache_wasm_path(&target_dir, &contract);
+    let sac_marker_path = cache_sac_marker_path(&target_dir, &contract);
     let help = resolution_help(&contract, &id_path, &wasm_path);
 
     // 1. Resolve the deployed address (and, online, enforce the flag check).
@@ -255,7 +317,20 @@ pub(crate) fn import_contract(
     })
     .map_err(err)?;
 
-    // 2. Ensure the deployed contract's wasm is on disk for `contractimport!`,
+    // 2. A registered name can itself resolve to a Stellar Asset Contract
+    //    (e.g. `circle/usdc`), which has no wasm to fetch. If a previous
+    //    build already discovered that for this address, skip straight to
+    //    the token client instead of repeating a `fetch` that can only fail
+    //    the same way again; `wasm_is_stale`'s same "does the cache match the
+    //    resolved address" check keeps this safe across redeploys.
+    let cached_sac_address = std::fs::read_to_string(&sac_marker_path).ok();
+    if cached_sac_address.is_some()
+        && !wasm_is_stale(cached_sac_address.as_deref(), &address, no_registry)
+    {
+        return Ok(expand_token_client(&env, &address));
+    }
+
+    // 3. Ensure the deployed contract's wasm is on disk for `contractimport!`,
     //    refetching if the name resolved to a different deployment than the
     //    cached wasm came from.
     if !wasm_path.exists() || wasm_is_stale(cached_id.as_deref(), &address, no_registry) {
@@ -267,10 +342,20 @@ pub(crate) fn import_contract(
                 path = wasm_path.display(),
             )));
         }
-        fetch_wasm(&address, &wasm_path).map_err(err)?;
+        match fetch_wasm(&address, &wasm_path) {
+            Ok(()) => {}
+            Err(e) if is_stellar_asset_fetch_error(&e) => {
+                if let Some(parent) = sac_marker_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::write(&sac_marker_path, &address);
+                return Ok(expand_token_client(&env, &address));
+            }
+            Err(e) => return Err(err(e)),
+        }
     }
 
-    // 3. Generate the client from that wasm and bind it to the address.
+    // 4. Generate the client from that wasm and bind it to the address.
     Ok(expand(
         &env,
         &mod_ident,
@@ -289,6 +374,41 @@ mod helpers {
 
     fn prefixed(s: &str) -> Prefixed {
         s.parse().unwrap()
+    }
+
+    #[test]
+    fn asset_syntax_matches_native_xlm_and_code_issuer() {
+        assert!(is_asset_syntax("xlm"));
+        assert!(is_asset_syntax("native"));
+        assert!(is_asset_syntax(
+            "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+        ));
+        // Ordinary registry names, including channel-prefixed ones, are not
+        // asset syntax — even one that happens to be *named* `xlm`.
+        assert!(!is_asset_syntax("our_dao"));
+        assert!(!is_asset_syntax("unverified/our-dao"));
+        assert!(!is_asset_syntax("unverified/xlm"));
+    }
+
+    #[test]
+    fn sac_marker_path_is_namespaced_like_the_wasm_cache() {
+        assert_eq!(
+            cache_sac_marker_path(Path::new("target"), &prefixed("circle-usdc")),
+            Path::new("target/deployed/circle_usdc.sac")
+        );
+        assert_eq!(
+            cache_sac_marker_path(Path::new("target"), &prefixed("unverified/foo")),
+            Path::new("target/deployed/unverified__foo.sac")
+        );
+    }
+
+    #[test]
+    fn stellar_asset_fetch_error_is_recognized() {
+        let stderr = "error: cannot fetch wasm for contract because the contract is \
+                       a network built-in asset contract that does not have a downloadable \
+                       code binary";
+        assert!(is_stellar_asset_fetch_error(stderr));
+        assert!(!is_stellar_asset_fetch_error("error: connection refused"));
     }
 
     #[test]
@@ -453,5 +573,52 @@ mod codegen {
             "builds the address: {out}"
         );
         assert!(out.contains(A), "bakes the resolved id: {out}");
+    }
+
+    #[test]
+    fn expand_token_client_binds_the_sdk_token_client_not_contractimport() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let out = expand_token_client(&env, A).to_string();
+        assert!(
+            !out.contains("contractimport"),
+            "no wasm to generate types from: {out}"
+        );
+        assert!(
+            out.contains("token :: TokenClient :: new"),
+            "binds the SDK's standard token client: {out}"
+        );
+        assert!(
+            out.contains("use :: soroban_sdk"),
+            "binds the sdk through the extern prelude, not the caller's scope: {out}"
+        );
+        assert!(
+            out.contains("Address :: from_str"),
+            "builds the address: {out}"
+        );
+        assert!(out.contains(A), "bakes the resolved id: {out}");
+    }
+
+    // `import_contract` itself takes a real `proc_macro::TokenStream`, which
+    // panics outside an actual macro expansion — so these test the same
+    // asset-literal building blocks `import_contract` composes (see its
+    // `is_asset_syntax` branch) rather than calling the entry point directly,
+    // consistent with `expand`/`resolve_address` being tested the same way.
+    #[test]
+    fn xlm_resolves_offline_to_the_local_native_asset_id() {
+        // The well-known local-network native asset id (see asset.rs's own
+        // `parse_native` test for the full per-network table).
+        let (id, code) = asset::generate_asset_id("xlm", &stellar_build::Network::Local).unwrap();
+        assert_eq!(code, "xlm");
+        assert_eq!(
+            id.to_string(),
+            "CDMLFMKMMD7MWZP3FKUBZPVHTUEDLSX4BYGYKH4GCESXYHS3IHQ4EIG4"
+        );
+    }
+
+    #[test]
+    fn invalid_asset_literal_reports_a_specific_error() {
+        let err =
+            asset::generate_asset_id("USDC:not-a-key", &stellar_build::Network::Local).unwrap_err();
+        assert!(err.contains("invalid issuer"), "{err}");
     }
 }

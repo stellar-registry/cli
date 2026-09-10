@@ -44,6 +44,25 @@ use util::ProcMacroWrapper as _;
 /// `stellar registry fetch-contract-id` and `stellar contract fetch`). Because
 /// a real on-chain address is baked in, if the named contract is redeployed,
 /// delete the cached files (or `cargo clean`) and rebuild.
+///
+/// # Stellar Asset Contracts (SACs)
+///
+/// A name is also accepted as an **asset** rather than a registered contract:
+/// `xlm`/`native`, or a `"CODE:ISSUER"` string. This resolves the SAC id
+/// offline (same computation as [`import_asset!`]) and binds the SDK's
+/// standard `token::TokenClient` to it — no registry lookup, no cache files,
+/// works under `STELLAR_NO_REGISTRY=1` with no setup:
+///
+/// ```ignore
+/// let xlm = stellar_registry::import_contract!(env, xlm);
+/// xlm.transfer(&from, &to, &amount);
+/// ```
+///
+/// A registered name that itself points at a SAC (e.g. `circle/usdc`) also
+/// works: address resolution goes through the registry as usual, and if the
+/// resolved address turns out to be a built-in asset contract rather than a
+/// wasm-backed one, the same `token::TokenClient` is bound to it instead of
+/// generating types from a (nonexistent) fetched wasm.
 #[proc_macro]
 pub fn import_contract(input: TokenStream) -> TokenStream {
     contract::import_contract(input).to_token_stream()
