@@ -196,13 +196,9 @@ fn is_stellar_asset_fetch_error(fetch_err: &str) -> bool {
     fetch_err.contains("network built-in asset contract")
 }
 
-/// Record that `address` (a registered name that turned out to point at a
-/// SAC, discovered only once `fetch_wasm` fails this specific way) has no
-/// wasm, so a rebuild can skip straight to the token client instead of
-/// repeating a `stellar contract fetch` that can only fail the same way
-/// again. The marker is purely a cache — if the write fails, the worst case
-/// is that the next build re-discovers this the slow way — so its error is
-/// dropped rather than surfaced.
+/// Cache that `address` is a SAC (no wasm to fetch), so a rebuild can skip
+/// straight to the token client. Purely a cache, so a write error is dropped
+/// — worst case, the next build just re-discovers it the slow way.
 fn record_sac_marker(sac_marker_path: &Path, address: &str) {
     if let Some(parent) = sac_marker_path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -356,10 +352,8 @@ pub(crate) fn import_contract(
         }
         match fetch_wasm(&address, &wasm_path) {
             Ok(()) => {}
-            // A registered name (like `circle/usdc`) can itself point at a
-            // SAC rather than a wasm-backed contract — this is the only place
-            // we find that out, since it takes an actual failed fetch to
-            // distinguish it from an ordinary contract. Cache it so a rebuild
+            // A registered name (e.g. `circle/usdc`) can itself be a SAC —
+            // this failed fetch is how we find out. Cache it so a rebuild
             // doesn't repeat a fetch that can only fail the same way again.
             Err(e) if is_stellar_asset_fetch_error(&e) => {
                 record_sac_marker(&sac_marker_path, &address);
