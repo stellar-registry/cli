@@ -15,7 +15,7 @@ pub(crate) fn import_asset(input: proc_macro::TokenStream) -> syn::Result<TokenS
 
 /// Parse `"native"`, `"xlm"`, or `"CODE:ISSUER"` into an XDR asset plus the
 /// bare code (used as the generated module name).
-fn parse_asset(s: &str) -> Result<(xdr::Asset, String), String> {
+pub(crate) fn parse_asset(s: &str) -> Result<(xdr::Asset, String), String> {
     if s == "native" || s == "xlm" {
         return Ok((xdr::Asset::Native, s.to_string()));
     }
@@ -50,7 +50,7 @@ fn parse_asset(s: &str) -> Result<(xdr::Asset, String), String> {
 
 /// The Stellar Asset Contract id for `asset` on `network`, derived offline
 /// from the contract-id preimage — no network call needed.
-fn generate_asset_id(
+pub(crate) fn generate_asset_id(
     asset: &str,
     network: &Network,
 ) -> Result<(stellar_strkey::Contract, String), String> {

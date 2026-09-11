@@ -5911,6 +5911,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "xlm_tip_jar"
+version = "0.0.0"
+dependencies = [
+ "soroban-sdk",
+ "stellar-registry",
+]
+
+[[package]]
 name = "xrpl-rust"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

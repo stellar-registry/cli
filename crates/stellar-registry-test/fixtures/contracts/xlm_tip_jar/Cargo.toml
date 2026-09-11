@@ -1,0 +1,23 @@
+[package]
+name = "xlm_tip_jar"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Demonstrates `import_contract!(env, xlm)` for Stellar Asset Contracts,
+# with no wasm/name to register — see src/lib.rs.
+
+[package.metadata.stellar]
+# Set contract metadata for authors, homepage, and version based on the Cargo.toml package values
+cargo_inherit = true
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+stellar-registry = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
