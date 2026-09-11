@@ -196,6 +196,20 @@ fn is_stellar_asset_fetch_error(fetch_err: &str) -> bool {
     fetch_err.contains("network built-in asset contract")
 }
 
+/// Record that `address` (a registered name that turned out to point at a
+/// SAC, discovered only once `fetch_wasm` fails this specific way) has no
+/// wasm, so a rebuild can skip straight to the token client instead of
+/// repeating a `stellar contract fetch` that can only fail the same way
+/// again. The marker is purely a cache — if the write fails, the worst case
+/// is that the next build re-discovers this the slow way — so its error is
+/// dropped rather than surfaced.
+fn record_sac_marker(sac_marker_path: &Path, address: &str) {
+    if let Some(parent) = sac_marker_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(sac_marker_path, address);
+}
+
 /// Shell out to `stellar contract fetch` to download a *deployed* contract's own
 /// wasm by address (not a registry-published wasm-name) into `out_path`.
 fn fetch_wasm(address: &str, out_path: &Path) -> Result<(), String> {
@@ -251,9 +265,7 @@ fn expand(
 /// `token::TokenClient` to `address` — for a Stellar Asset Contract, which has
 /// no bespoke wasm to run `contractimport!` on. Its interface is always the
 /// same, so no codegen from a fetched wasm is needed, unlike [`expand`].
-/// (`token::Client` is a deprecated alias for `TokenClient` — used by name
-/// here, as `import_asset!`'s codegen in `asset.rs` already does, so expanded
-/// code doesn't trip a deprecation warning.)
+/// (Named `TokenClient`, not the deprecated `token::Client` alias.)
 fn expand_token_client(env: &Expr, address: &str) -> proc_macro2::TokenStream {
     quote! {
         {
@@ -344,11 +356,13 @@ pub(crate) fn import_contract(
         }
         match fetch_wasm(&address, &wasm_path) {
             Ok(()) => {}
+            // A registered name (like `circle/usdc`) can itself point at a
+            // SAC rather than a wasm-backed contract — this is the only place
+            // we find that out, since it takes an actual failed fetch to
+            // distinguish it from an ordinary contract. Cache it so a rebuild
+            // doesn't repeat a fetch that can only fail the same way again.
             Err(e) if is_stellar_asset_fetch_error(&e) => {
-                if let Some(parent) = sac_marker_path.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::write(&sac_marker_path, &address);
+                record_sac_marker(&sac_marker_path, &address);
                 return Ok(expand_token_client(&env, &address));
             }
             Err(e) => return Err(err(e)),
