@@ -2,8 +2,17 @@
 
 ```toml
 [dependencies]
-soroban-sdk = "..."          # your existing version; generated code uses your `soroban_sdk`
+soroban-sdk = "25"           # or your existing version; generated code uses your `soroban_sdk`
 stellar-registry = "0.1"
+```
+
+**Module names** (for the generated modules and clients): the channel is dropped, `-` becomes `_`, and the name is lowercased. `"unverified/my-game"` → `my_game`. Assets are the exception: `import_asset!` names the module exactly after the asset code (`USDC`, `xlm`).
+
+**See a contract's methods before coding against it:**
+
+```bash
+stellar contract info interface --id $(stellar registry fetch-contract-id unverified/price-oracle)
+stellar registry download unverified/escrow --version 1.2.0 -o escrow.wasm && stellar contract info interface --wasm escrow.wasm
 ```
 
 All three macros run at **build time**. `import_contract!` and `import_contract_client!` shell out to `stellar registry` (the `stellar-registry-cli` plugin) and `stellar contract fetch`, so both `stellar` and the plugin must be on `PATH` when you `cargo build`. A default identity (`stellar keys use <name>`) must also be set, since the lookups need a source account.
@@ -49,6 +58,7 @@ use soroban_sdk;   // required in scope, or: "unresolved import `super`, no `sor
 stellar_registry::import_contract_client!(registry);                  // latest version
 stellar_registry::import_contract_client!("unverified/my-game");
 stellar_registry::import_contract_client!("registry@1.0.0");          // pinned; leading `v` ok
+stellar_registry::import_contract_client!("unverified/escrow@1.2.0"); // channel + version → module `escrow`
 
 // Later, bind it to an address you supply:
 let client = registry::Client::new(env, &some_address);

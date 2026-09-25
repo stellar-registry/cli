@@ -112,6 +112,8 @@ impl Tipper {
 }
 ```
 
+Before calling a contract's methods, list them with `stellar contract info interface --id <C...>` (get the id from `stellar registry fetch-contract-id <name>`).
+
 **Build with the network set.** The macros resolve names at build time, reading `STELLAR_NETWORK`, which **defaults to `local`**:
 
 ```bash
