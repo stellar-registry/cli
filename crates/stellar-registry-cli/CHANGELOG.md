@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.1...stellar-registry-cli-v0.1.2) - 2026-09-25
+
+### Other
+
+- *(deps)* bump crate-git-revision from 0.0.6 to 0.0.9 ([#2](https://github.com/stellar-registry/cli/pull/2))
+
 ## [0.1.1](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.0...stellar-registry-cli-v0.1.1) - 2026-09-11
 
 ### Other
