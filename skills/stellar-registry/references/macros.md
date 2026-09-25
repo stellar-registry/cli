@@ -2,7 +2,7 @@
 
 ```toml
 [dependencies]
-soroban-sdk = "25"           # or your existing version; generated code uses your `soroban_sdk`
+soroban-sdk = "28"           # or your existing version; generated code uses your `soroban_sdk`
 stellar-registry = "0.1"
 ```
 
