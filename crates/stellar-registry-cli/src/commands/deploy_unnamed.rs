@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use clap::Parser;
-use rand::Rng;
+use rand::RngExt;
 use soroban_rpc as rpc;
 pub use soroban_spec_tools::contract as contract_spec;
 use stellar_cli::{
