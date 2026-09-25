@@ -42,8 +42,8 @@ stellar registry deploy \
   -- \
   --param1 value1
 
-# Install the deployed contract locally as a stellar-cli alias
-stellar registry install my-contract-instance
+# Create a local stellar-cli alias for the deployed contract
+stellar registry create-alias my-contract-instance
 ```
 
 Use `--help` on any command for full usage. See the crate README at
@@ -73,6 +73,10 @@ The registry is an on-chain smart contract that lets you:
 It separates **Wasm publication** (reusable code), **contract deployment**
 (instances), and **local installation** (CLI aliases). The contracts themselves
 live in [stellar-registry/contracts](https://github.com/stellar-registry/contracts).
+
+## Agent skill
+
+[`skills/stellar-registry`](./skills/stellar-registry/SKILL.md) is an [Agent Skill](https://skills.stellar.org/) that teaches coding agents the registry CLI workflow and the `import_contract!` / `import_contract_client!` / `import_asset!` macros.
 
 ## Documentation
 
