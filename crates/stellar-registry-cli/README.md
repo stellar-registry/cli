@@ -46,27 +46,27 @@ stellar registry deploy \
   --wasm-name <NAME> \
   [--version <VERSION>] \
   -- \
-  [CONSTRUCTOR_FUNCTION] [CONSTRUCTOR_ARGS...]
+  [CONSTRUCTOR_ARGS...]
 ```
 
 Options:
 - `--contract-name`: Name to give this contract instance (required)
 - `--wasm-name`: Name of the published contract to deploy (required)
 - `--version`: Specific version of the published contract to deploy (optional, defaults to most recent version)
-- `CONSTRUCTOR_FUNCTION`: Optional constructor function name if contract implements initialization
-- `CONSTRUCTOR_ARGS`: Optional arguments for the constructor function
+- `CONSTRUCTOR_ARGS`: Arguments for the contract's `__constructor`, as `--arg-name value` (run with `-- --help` to list them)
 
-Note: Use `--` to separate CLI options from constructor function and arguments.
+Note: Use `--` to separate CLI options from constructor arguments.
 
-### Install
+### Create alias
 
-Install a deployed contract as an alias to be used by `stellar-cli`:
+Create a local alias for a deployed contract, to be used by `stellar-cli`:
 ```bash
-stellar registry install <CONTRACT_NAME>
+stellar registry create-alias <CONTRACT_NAME> [LOCAL_NAME]
 ```
 
 Options:
-- `CONTRACT_NAME`: Name of the deployed contract to install (required)
+- `CONTRACT_NAME`: Name of the deployed contract (required)
+- `LOCAL_NAME`: Alias to create (optional, defaults to the registry name)
 
 ## Configuration
 
@@ -106,15 +106,14 @@ stellar registry deploy \
   --wasm-name token \
   --version "1.0.0" \
   -- \
-  initialize \
   --name "My Token" \
   --symbol "MTK" \
   --decimals 7
 ```
 
-3. Install the deployed contract:
+3. Create a local alias for the deployed contract:
 ```bash
-stellar registry install my-token
+stellar registry create-alias my-token
 ```
 
 Then can interact with the contract with `stellar-cli`:
