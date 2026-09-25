@@ -1313,7 +1313,7 @@ dependencies = [
  "embedded-io-async",
  "futures-sink",
  "futures-util",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]
@@ -1720,6 +1720,17 @@ checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
  "hash32",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
+ "zeroize",
 ]
 
 [[package]]
@@ -3592,7 +3603,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -4264,7 +4275,7 @@ dependencies = [
  "stellar-build",
  "stellar-registry-name",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
 ]
 
@@ -4291,7 +4302,7 @@ dependencies = [
  "stellar-registry-build",
  "stellar-registry-test",
  "stellar-rpc-client",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -4305,7 +4316,7 @@ dependencies = [
  "sha2 0.10.9",
  "stellar-build",
  "stellar-registry-name",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
  "syn 2.0.117",
 ]
@@ -4329,7 +4340,7 @@ dependencies = [
  "reflink-copy",
  "soroban-cli",
  "soroban-sdk",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "tokio",
  "tokio-stream",
  "uuid",
@@ -4380,11 +4391,23 @@ dependencies = [
  "clap",
  "crate-git-revision 0.0.6",
  "data-encoding",
- "heapless",
+ "heapless 0.8.0",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "stellar-strkey"
+version = "0.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f34ff61c0ca6f1c2b4169e8d1633417bd9225f58b6175e4e317204565d16277"
+dependencies = [
+ "crate-git-revision 0.0.9",
+ "data-encoding",
+ "heapless 0.9.3",
+ "zeroize",
 ]
 
 [[package]]
