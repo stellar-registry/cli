@@ -36,7 +36,7 @@ sha2 = "0.10.9"
 semver = "1.0.28"
 
 clap = "4.6.1"
-reqwest = { version = "0.12.9", default-features = false }
+reqwest = { version = "0.13.5", default-features = false }
 
 [workspace.lints.clippy]
 result_large_err = "allow"
