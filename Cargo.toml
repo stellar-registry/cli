@@ -24,7 +24,7 @@ soroban-spec-tools = "27.0.0"
 
 admin-sep = { git = "https://github.com/theahaco/admin-sep", rev = "c4624cc742913a16095084e3149e241405882849" }
 stellar-xdr = "=27.0.0"
-stellar-strkey = "0.0.16"
+stellar-strkey = "0.0.18"
 
 proc-macro2 = "1.0"
 quote = "1.0"
