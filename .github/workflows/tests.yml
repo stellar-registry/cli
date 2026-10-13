@@ -106,8 +106,8 @@ jobs:
       - uses: stellar/stellar-cli@v28.1.0
       # Start the local network through the CLI at the protocol the stellar-cli
       # pin targets. Without an explicit protocol, quickstart's local network
-      # arms its baked-in default (p25) and p28 contracts fail transaction
-      # simulation on deploy — surfacing as Account NotFound during upload.
+      # starts at the image's own default, which moves with the image and may
+      # not match the protocol the test contracts are built for.
       - name: Start local Stellar network
         run: |
           PROTOCOL_VERSION=$(sed -n 's/.*stellar-cli = .*version = "\([0-9]*\).*/\1/p' Cargo.toml | head -1)
