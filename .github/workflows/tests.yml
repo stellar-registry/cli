@@ -132,6 +132,16 @@ jobs:
           echo "Local network failed to become healthy in time." >&2
           docker logs stellar --tail 100 || true
           exit 1
+      # Friendbot answers health probes before it can fund reliably: the first
+      # funding requests can outlast the CLI's 30s timeout, failing the first
+      # tests at `keys generate --fund`. Fund a throwaway account first.
+      - name: Warm up friendbot
+        run: |
+          stellar keys generate friendbot-warmup
+          ADDRESS=$(stellar keys public-key friendbot-warmup)
+          curl --no-progress-meter --fail-with-body --max-time 120 \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            "http://localhost:8000/friendbot?addr=$ADDRESS" >/dev/null
       - name: Download nextest archive
         uses: actions/download-artifact@v8
         with:
