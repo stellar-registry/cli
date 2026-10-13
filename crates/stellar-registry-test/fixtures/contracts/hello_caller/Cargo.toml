@@ -1,0 +1,27 @@
+[package]
+name = "hello_caller"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Demonstrates testing a contract that uses `import_contract!` with
+# `stellar_registry::testutils::register_import!` — see src/lib.rs.
+#
+# Excluded from the repo workspace: `import_contract!(env, hello_v1)` needs
+# hello_v1's id and Wasm in this crate's `target/stellar/local/deployed/`
+# before it compiles, so a plain `cargo build --workspace` could not build it.
+# `just test-register-import` seeds those files and runs the tests offline.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+# Same requirement as the root workspace's soroban-sdk.
+soroban-sdk = "27.0.0-rc.1"
+stellar-registry = { path = "../../../../stellar-registry" }
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.0-rc.1", features = ["testutils"] }
+stellar-registry = { path = "../../../../stellar-registry", features = ["testutils"] }

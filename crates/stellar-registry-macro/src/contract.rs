@@ -31,6 +31,57 @@ impl Parse for Input {
     }
 }
 
+/// `register_import!(env_expr, name [, args = (..)] [, contract = Mock])` —
+/// `name` as in [`Input`]; the options may come in either order.
+struct RegisterInput {
+    env: Expr,
+    name: Name,
+    /// Constructor arguments; `()` when omitted.
+    args: Option<Expr>,
+    /// A native contract to register instead of the imported Wasm.
+    contract: Option<Expr>,
+}
+
+impl Parse for RegisterInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let Input { env, name } = input.parse()?;
+        let (mut args, mut contract) = (None, None);
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+            let key: Ident = input.parse()?;
+            let slot = match key.to_string().as_str() {
+                "args" => &mut args,
+                "contract" => &mut contract,
+                other => {
+                    return Err(syn::Error::new(
+                        key.span(),
+                        format!(
+                            "unknown option `{other}`: expected `args = (..)` or `contract = ..`"
+                        ),
+                    ));
+                }
+            };
+            if slot.is_some() {
+                return Err(syn::Error::new(
+                    key.span(),
+                    format!("`{key}` given more than once"),
+                ));
+            }
+            input.parse::<Token![=]>()?;
+            *slot = Some(input.parse()?);
+        }
+        Ok(Self {
+            env,
+            name,
+            args,
+            contract,
+        })
+    }
+}
+
 /// Whether `raw` names an asset rather than a registered contract: exactly
 /// `native`/`xlm`, or a `CODE:ISSUER` literal. Colons are never valid in a
 /// registry name (`Prefixed` rejects them outright), so `raw.contains(':')`
@@ -275,10 +326,24 @@ fn expand_token_client(env: &Expr, address: &str) -> proc_macro2::TokenStream {
     }
 }
 
-pub(crate) fn import_contract(
-    input: proc_macro::TokenStream,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let Input { env, name } = syn::parse(input)?;
+/// What a name resolved to at build time.
+#[derive(Debug)]
+enum Resolved {
+    /// A Wasm-backed contract: its deployed address and cached Wasm.
+    Wasm {
+        mod_ident: Ident,
+        wasm_path: PathBuf,
+        address: String,
+    },
+    /// A Stellar Asset Contract: asset syntax, or a registered name that
+    /// points at one. There is no Wasm.
+    Sac { address: String },
+}
+
+/// Resolve `name` for `macro_name!` — shared by `import_contract!` and
+/// `register_import!` so a test registers at exactly the address (and with
+/// exactly the Wasm) the contract under test was compiled against.
+fn resolve(name: &Name, macro_name: &str) -> syn::Result<Resolved> {
     let span = name.span();
     let err = |msg: String| syn::Error::new(span, msg);
 
@@ -287,8 +352,8 @@ pub(crate) fn import_contract(
     let raw = name.raw();
     if raw.contains('@') {
         return Err(err(format!(
-            "import_contract! does not take a version — a deployed contract has no version \
-             (got {raw:?}). Use just the contract name, e.g. `import_contract!(env, our_dao)`."
+            "{macro_name}! does not take a version — a deployed contract has no version \
+             (got {raw:?}). Use just the contract name, e.g. `{macro_name}!(env, our_dao)`."
         )));
     }
 
@@ -299,7 +364,9 @@ pub(crate) fn import_contract(
         let (contract_id, _code) =
             asset::generate_asset_id(&raw, &stellar_build::Network::passphrase_from_env())
                 .map_err(err)?;
-        return Ok(expand_token_client(&env, &contract_id.to_string()));
+        return Ok(Resolved::Sac {
+            address: format!("{contract_id}"),
+        });
     }
 
     let contract: Prefixed = name.parse_as()?;
@@ -335,7 +402,7 @@ pub(crate) fn import_contract(
     if cached_sac_address.is_some()
         && !wasm_is_stale(cached_sac_address.as_deref(), &address, no_registry)
     {
-        return Ok(expand_token_client(&env, &address));
+        return Ok(Resolved::Sac { address });
     }
 
     // 3. Ensure the deployed contract's wasm is on disk for `contractimport!`,
@@ -357,19 +424,83 @@ pub(crate) fn import_contract(
             // doesn't repeat a fetch that can only fail the same way again.
             Err(e) if is_stellar_asset_fetch_error(&e) => {
                 record_sac_marker(&sac_marker_path, &address);
-                return Ok(expand_token_client(&env, &address));
+                return Ok(Resolved::Sac { address });
             }
             Err(e) => return Err(err(e)),
         }
     }
 
-    // 4. Generate the client from that wasm and bind it to the address.
-    Ok(expand(
-        &env,
-        &mod_ident,
-        &wasm_path.to_string_lossy(),
-        &address,
-    ))
+    Ok(Resolved::Wasm {
+        mod_ident,
+        wasm_path,
+        address,
+    })
+}
+
+pub(crate) fn import_contract(
+    input: proc_macro::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let Input { env, name } = syn::parse(input)?;
+    Ok(match resolve(&name, "import_contract")? {
+        Resolved::Wasm {
+            mod_ident,
+            wasm_path,
+            address,
+        } => expand(&env, &mod_ident, &wasm_path.to_string_lossy(), &address),
+        Resolved::Sac { address } => expand_token_client(&env, &address),
+    })
+}
+
+/// Emit a block expression registering a contract at the address
+/// `import_contract!` baked in: the imported Wasm, or `contract` (a native
+/// mock) when given. Evaluates to the `Address`.
+fn expand_register(
+    input: &RegisterInput,
+    resolved: &Resolved,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let (wasm_path, address) = match resolved {
+        Resolved::Wasm {
+            wasm_path, address, ..
+        } => (wasm_path.to_string_lossy(), address),
+        Resolved::Sac { .. } => {
+            return Err(syn::Error::new(
+                input.name.span(),
+                format!(
+                    "register_import! does not support Stellar Asset Contracts yet, and `{}` \
+                     resolves to one. SAC support is coming; until then, register a test asset \
+                     yourself with `Env::register_stellar_asset_contract_v2`.",
+                    input.name.raw()
+                ),
+            ));
+        }
+    };
+    let env = &input.env;
+    let contract = input.contract.as_ref().map_or_else(
+        || quote!(::core::include_bytes!(#wasm_path).as_slice()),
+        |contract| quote!(#contract),
+    );
+    let args = input
+        .args
+        .as_ref()
+        .map_or_else(|| quote!(()), |args| quote!(#args));
+    Ok(quote! {
+        {
+            let __env: &::soroban_sdk::Env = #env;
+            ::soroban_sdk::Env::register_at(
+                __env,
+                &::soroban_sdk::Address::from_str(__env, #address),
+                #contract,
+                #args,
+            )
+        }
+    })
+}
+
+pub(crate) fn register_import(
+    input: proc_macro::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let input: RegisterInput = syn::parse(input)?;
+    expand_register(&input, &resolve(&input.name, "register_import")?)
 }
 
 #[cfg(test)]
@@ -628,5 +759,105 @@ mod codegen {
         let err =
             asset::generate_asset_id("USDC:not-a-key", &stellar_build::Network::Local).unwrap_err();
         assert!(err.contains("invalid issuer"), "{err}");
+    }
+}
+
+#[cfg(test)]
+mod register {
+    use super::*;
+    use proc_macro2::Span;
+    use quote::quote;
+    use syn::{Ident, parse2};
+
+    const A: &str = "CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322";
+
+    fn wasm() -> Resolved {
+        Resolved::Wasm {
+            mod_ident: Ident::new("our_dao", Span::call_site()),
+            wasm_path: "/tmp/target/stellar/local/deployed/our_dao.wasm".into(),
+            address: A.to_string(),
+        }
+    }
+
+    fn expanded(tokens: proc_macro2::TokenStream, resolved: &Resolved) -> String {
+        let input: RegisterInput = parse2(tokens).unwrap();
+        expand_register(&input, resolved).unwrap().to_string()
+    }
+
+    fn parse_err(tokens: proc_macro2::TokenStream) -> String {
+        parse2::<RegisterInput>(tokens).err().unwrap().to_string()
+    }
+
+    #[test]
+    fn parses_name_only() {
+        let input: RegisterInput = parse2(quote!(&env, "unverified/our-dao")).unwrap();
+        assert_eq!(input.name.raw(), "unverified/our-dao");
+        assert!(input.args.is_none());
+        assert!(input.contract.is_none());
+    }
+
+    #[test]
+    fn parses_options_in_either_order_with_trailing_comma() {
+        for tokens in [
+            quote!(&env, our_dao, args = (&admin, 7u32), contract = MockDao,),
+            quote!(&env, our_dao, contract = MockDao, args = (&admin, 7u32)),
+        ] {
+            let input: RegisterInput = parse2(tokens).unwrap();
+            assert!(input.args.is_some());
+            assert!(input.contract.is_some());
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_and_repeated_options() {
+        let msg = parse_err(quote!(&env, our_dao, wasm = X));
+        assert!(msg.contains("unknown option `wasm`"), "{msg}");
+        let msg = parse_err(quote!(&env, our_dao, args = (), args = ()));
+        assert!(msg.contains("`args` given more than once"), "{msg}");
+        // A positional third argument is not accepted.
+        assert!(parse2::<RegisterInput>(quote!(&env, our_dao, (admin,))).is_err());
+    }
+
+    #[test]
+    fn registers_the_cached_wasm_at_the_baked_address() {
+        let out = expanded(quote!(&env, our_dao), &wasm());
+        assert!(out.contains("Env :: register_at"), "{out}");
+        assert!(out.contains("include_bytes !"), "{out}");
+        assert!(out.contains("our_dao.wasm"), "{out}");
+        assert!(out.contains(A), "bakes the resolved id: {out}");
+        assert!(
+            out.contains(". as_slice () , () ,"),
+            "no constructor args by default: {out}"
+        );
+    }
+
+    #[test]
+    fn passes_constructor_args_through() {
+        let out = expanded(quote!(&env, our_dao, args = (&admin, 7u32)), &wasm());
+        assert!(out.contains("(& admin , 7u32)"), "{out}");
+    }
+
+    #[test]
+    fn contract_option_replaces_the_wasm() {
+        let out = expanded(quote!(&env, our_dao, contract = mocks::MockDao), &wasm());
+        assert!(out.contains("mocks :: MockDao"), "{out}");
+        assert!(!out.contains("include_bytes"), "{out}");
+        assert!(out.contains(A), "still at the baked address: {out}");
+    }
+
+    #[test]
+    fn stellar_asset_contracts_are_a_clear_compile_error() {
+        let sac = Resolved::Sac {
+            address: A.to_string(),
+        };
+        for tokens in [
+            quote!(&env, xlm),
+            quote!(&env, "circle/usdc", contract = MockToken),
+        ] {
+            let input: RegisterInput = parse2(tokens).unwrap();
+            let msg = expand_register(&input, &sac).unwrap_err().to_string();
+            assert!(msg.contains("Stellar Asset Contracts"), "{msg}");
+            assert!(msg.contains("SAC support is coming"), "{msg}");
+        }
     }
 }
