@@ -3540,7 +3540,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.16",
+ "stellar-strkey 0.0.18",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -3890,7 +3890,7 @@ dependencies = [
  "stellar-asset-spec",
  "stellar-rpc-client",
  "stellar-strkey 0.0.18",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "strsim",
  "strum 0.17.1",
  "strum_macros 0.17.1",
@@ -3930,7 +3930,7 @@ dependencies = [
  "soroban-env-macros",
  "soroban-wasmi",
  "static_assertions",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "wasmparser 0.116.1",
 ]
 
@@ -3992,7 +3992,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.117",
 ]
 
@@ -4050,7 +4050,7 @@ dependencies = [
  "soroban-env-common",
  "soroban-spec",
  "soroban-spec-rust",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.117",
 ]
 
@@ -4062,7 +4062,7 @@ checksum = "2f48c8e183fc140ccd89e1fe1663cc605fb18641967c0bb591f64887599fde59"
 dependencies = [
  "base64 0.22.1",
  "sha2 0.10.9",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "thiserror 1.0.69",
  "wasmparser 0.116.1",
 ]
@@ -4078,7 +4078,7 @@ dependencies = [
  "quote",
  "sha2 0.10.9",
  "soroban-spec",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.117",
  "thiserror 1.0.69",
 ]
@@ -4099,7 +4099,7 @@ dependencies = [
  "serde_json",
  "soroban-spec",
  "stellar-strkey 0.0.18",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "thiserror 1.0.69",
  "wasm-encoder 0.235.0",
  "wasmparser 0.116.1",
@@ -4121,7 +4121,7 @@ dependencies = [
  "serde_json",
  "sha2 0.9.9",
  "soroban-spec",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "thiserror 1.0.69",
 ]
 
@@ -4268,7 +4268,7 @@ dependencies = [
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",
- "stellar-xdr",
+ "stellar-xdr 30.0.0",
  "syn 2.0.117",
 ]
 
@@ -4316,7 +4316,7 @@ dependencies = [
  "serde_with",
  "sha2 0.10.9",
  "stellar-strkey 0.0.18",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "termcolor",
  "termcolor_output",
  "thiserror 1.0.69",
@@ -4362,6 +4362,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellar-strkey"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5038ed2bf4e11842210d118f65791d8ca4747622daddd222338b3d06b6051bc1"
+dependencies = [
+ "crate-git-revision 0.0.9",
+ "data-encoding",
+ "heapless 0.9.3",
+ "zeroize",
+]
+
+[[package]]
 name = "stellar-xdr"
 version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4384,6 +4396,20 @@ dependencies = [
  "sha2 0.10.9",
  "stellar-strkey 0.0.13",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "stellar-xdr"
+version = "30.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f2fb2008b42fc746c0f6b46e375600068dd91f07748e9f1737c6341a2255f2"
+dependencies = [
+ "crate-git-revision 0.0.9",
+ "escape-bytes",
+ "ethnum",
+ "hex",
+ "sha2 0.10.9",
+ "stellar-strkey 1.0.0",
 ]
 
 [[package]]
