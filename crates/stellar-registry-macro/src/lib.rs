@@ -68,7 +68,8 @@ use util::ProcMacroWrapper as _;
 /// # Testing
 ///
 /// Nothing lives at the baked address in a test `Env`; use
-/// [`register_import!`] to register the imported contract (or a mock) there.
+/// [`register_import!`] to register the imported contract, a test asset for
+/// a SAC, or a mock there.
 #[proc_macro]
 pub fn import_contract(input: TokenStream) -> TokenStream {
     contract::import_contract(input).to_token_stream()
@@ -109,10 +110,22 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// `Env::register_at`, so `soroban-sdk`'s `testutils` feature must be enabled
 /// too.
 ///
-/// Stellar Asset Contracts — `xlm`/`native`, `"CODE:ISSUER"`, or a registered
-/// name that resolves to a SAC — are not supported yet and fail to compile;
-/// register a test asset with `Env::register_stellar_asset_contract_v2`
-/// instead.
+/// # Stellar Asset Contracts (SACs)
+///
+/// For `xlm`/`native`, `"CODE:ISSUER"`, or a registered name that resolves to
+/// a SAC, there is no Wasm to register. `register_import!` instead puts a
+/// test asset (as made by `Env::register_stellar_asset_contract_v2`) at the
+/// baked address, with a generated admin so tests can mint:
+///
+/// ```ignore
+/// env.mock_all_auths();
+/// let xlm = register_import!(&env, xlm);
+/// token::StellarAssetClient::new(&env, &xlm).mint(&alice, &1_000);
+/// ```
+///
+/// It is a stand-in, not the real asset: its code and issuer are the test
+/// asset's, whatever name was imported. `args` is rejected (a SAC has no
+/// constructor); `contract = <expr>` works as for any other name.
 #[proc_macro]
 pub fn register_import(input: TokenStream) -> TokenStream {
     contract::register_import(input).to_token_stream()

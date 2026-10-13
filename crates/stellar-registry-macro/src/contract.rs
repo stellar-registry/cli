@@ -451,34 +451,84 @@ pub(crate) fn import_contract(
     })
 }
 
+/// Emit a block expression putting a Stellar Asset Contract test double at
+/// `address`. A test `Env` only creates a SAC at the address derived from its
+/// asset, so this registers a throwaway one and copies its contract instance
+/// (executable, admin, asset info) to `address`. Evaluates to the `Address`.
+fn expand_register_sac(env: &Expr, address: &str) -> proc_macro2::TokenStream {
+    quote! {
+        {
+            extern crate std as __std;
+            use ::soroban_sdk::xdr as __xdr;
+            let __env: &::soroban_sdk::Env = #env;
+            let __address = ::soroban_sdk::Address::from_str(__env, #address);
+            let __admin =
+                <::soroban_sdk::Address as ::soroban_sdk::testutils::Address>::generate(__env);
+            let __double = __env.register_stellar_asset_contract_v2(__admin).address();
+            let __instance_key = |address: &::soroban_sdk::Address| {
+                __std::rc::Rc::new(__xdr::LedgerKey::ContractData(__xdr::LedgerKeyContractData {
+                    contract: __xdr::ScAddress::from(address),
+                    key: __xdr::ScVal::LedgerKeyContractInstance,
+                    durability: __xdr::ContractDataDurability::Persistent,
+                }))
+            };
+            let (__entry, __live_until) = __env
+                .host()
+                .get_ledger_entry(&__instance_key(&__double))
+                .unwrap()
+                .unwrap();
+            let mut __entry = (*__entry).clone();
+            if let __xdr::LedgerEntryData::ContractData(__data) = &mut __entry.data {
+                __data.contract = __xdr::ScAddress::from(&__address);
+            }
+            __env
+                .host()
+                .add_ledger_entry(
+                    &__instance_key(&__address),
+                    &__std::rc::Rc::new(__entry),
+                    __live_until,
+                )
+                .unwrap();
+            __address
+        }
+    }
+}
+
 /// Emit a block expression registering a contract at the address
-/// `import_contract!` baked in: the imported Wasm, or `contract` (a native
-/// mock) when given. Evaluates to the `Address`.
+/// `import_contract!` baked in: `contract` (a native mock) when given,
+/// otherwise the imported Wasm, or a test asset for a SAC. Evaluates to the
+/// `Address`.
 fn expand_register(
     input: &RegisterInput,
     resolved: &Resolved,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    let (wasm_path, address) = match resolved {
+    let env = &input.env;
+    let (address, wasm_path) = match resolved {
         Resolved::Wasm {
             wasm_path, address, ..
-        } => (wasm_path.to_string_lossy(), address),
-        Resolved::Sac { .. } => {
-            return Err(syn::Error::new(
-                input.name.span(),
-                format!(
-                    "register_import! does not support Stellar Asset Contracts yet, and `{}` \
-                     resolves to one. SAC support is coming; until then, register a test asset \
-                     yourself with `Env::register_stellar_asset_contract_v2`.",
-                    input.name.raw()
-                ),
-            ));
+        } => (address, Some(wasm_path)),
+        Resolved::Sac { address } => (address, None),
+    };
+    let contract = match (&input.contract, wasm_path) {
+        (Some(contract), _) => quote!(#contract),
+        (None, Some(wasm_path)) => {
+            let wasm_path = wasm_path.to_string_lossy();
+            quote!(::core::include_bytes!(#wasm_path).as_slice())
+        }
+        (None, None) => {
+            if let Some(args) = &input.args {
+                return Err(syn::Error::new_spanned(
+                    args,
+                    format!(
+                        "`{}` is a Stellar Asset Contract, which has no constructor; remove \
+                         `args`, or pass `contract = ..` to register a mock that takes them.",
+                        input.name.raw()
+                    ),
+                ));
+            }
+            return Ok(expand_register_sac(env, address));
         }
     };
-    let env = &input.env;
-    let contract = input.contract.as_ref().map_or_else(
-        || quote!(::core::include_bytes!(#wasm_path).as_slice()),
-        |contract| quote!(#contract),
-    );
     let args = input
         .args
         .as_ref()
@@ -845,19 +895,45 @@ mod register {
         assert!(out.contains(A), "still at the baked address: {out}");
     }
 
-    #[test]
-    fn stellar_asset_contracts_are_a_clear_compile_error() {
-        let sac = Resolved::Sac {
+    fn sac() -> Resolved {
+        Resolved::Sac {
             address: A.to_string(),
-        };
-        for tokens in [
-            quote!(&env, xlm),
-            quote!(&env, "circle/usdc", contract = MockToken),
-        ] {
-            let input: RegisterInput = parse2(tokens).unwrap();
-            let msg = expand_register(&input, &sac).unwrap_err().to_string();
-            assert!(msg.contains("Stellar Asset Contracts"), "{msg}");
-            assert!(msg.contains("SAC support is coming"), "{msg}");
         }
+    }
+
+    #[test]
+    fn stellar_asset_contract_gets_a_test_asset_at_the_baked_address() {
+        for tokens in [quote!(&env, xlm), quote!(&env, "circle/usdc")] {
+            let out = expanded(tokens, &sac());
+            assert!(
+                out.contains("register_stellar_asset_contract_v2"),
+                "stands up a real SAC: {out}"
+            );
+            assert!(
+                out.contains("add_ledger_entry"),
+                "copies its instance to the baked address: {out}"
+            );
+            assert!(out.contains(A), "bakes the resolved id: {out}");
+            assert!(!out.contains("register_at"), "{out}");
+            assert!(!out.contains("include_bytes"), "no wasm exists: {out}");
+        }
+    }
+
+    #[test]
+    fn stellar_asset_contract_can_be_replaced_by_a_mock() {
+        let out = expanded(
+            quote!(&env, xlm, contract = MockToken, args = (7u32,)),
+            &sac(),
+        );
+        assert!(out.contains("Env :: register_at"), "{out}");
+        assert!(out.contains("MockToken , (7u32 ,)"), "{out}");
+        assert!(!out.contains("register_stellar_asset_contract_v2"), "{out}");
+    }
+
+    #[test]
+    fn stellar_asset_contract_rejects_constructor_args() {
+        let input: RegisterInput = parse2(quote!(&env, xlm, args = (&admin,))).unwrap();
+        let msg = expand_register(&input, &sac()).unwrap_err().to_string();
+        assert!(msg.contains("has no constructor"), "{msg}");
     }
 }

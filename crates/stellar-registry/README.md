@@ -73,7 +73,27 @@ Two options, in either order:
 
 Both macros read the same cache files (`target/stellar/<network>/deployed/<name>.id` and `.wasm`), so once `import_contract!` has built, `register_import!` needs nothing more. To run tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and create those two files first (`stellar registry fetch-contract-id` and `stellar contract fetch`, or commit copies and put them in place before building). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) is a complete example, run by `just test-register-import`.
 
-Stellar Asset Contracts (`xlm`, `"CODE:ISSUER"`, or a registered name that resolves to a SAC) are not supported by `register_import!` yet and give a compile error. Until they are, register a test asset with `Env::register_stellar_asset_contract_v2`.
+### Testing Stellar Asset Contracts
+
+For an asset name (`xlm`, `native`, `"CODE:ISSUER"`) or a registered name that resolves to a SAC, there is no Wasm to register. `register_import!` puts a test asset at the imported address instead, the same kind `Env::register_stellar_asset_contract_v2` creates, with a generated admin so your test can mint:
+
+```rs
+pub fn tip(env: &Env, from: &Address, amount: i128) {
+    from.require_auth();
+    stellar_registry::import_contract!(env, xlm).transfer(from, env.current_contract_address(), &amount);
+}
+
+#[test]
+fn tips() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let xlm = register_import!(&env, xlm);
+    token::StellarAssetClient::new(&env, &xlm).mint(&alice, &1_000);
+    // ...
+}
+```
+
+It is a stand-in, not the real asset: its code and issuer are the test asset's, whatever name you imported. `args` is not accepted (a SAC has no constructor); `contract = ..` works as for any other name. The [`xlm_tip_jar` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/xlm_tip_jar) is a complete example.
 
 # Import wasm with `import_contract_client!`
 
