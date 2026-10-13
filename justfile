@@ -24,7 +24,7 @@ build:
 # Setup the project to use a pinned version of the CLI
 setup:
     git config core.hooksPath .githooks
-    -cargo binstall -y stellar-cli --version 26.0.0 --force --install-path ./target/bin
+    -cargo binstall -y stellar-cli --version 28.1.0 --force --install-path ./target/bin
 
 test: build
     cargo t
