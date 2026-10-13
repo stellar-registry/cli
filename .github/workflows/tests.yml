@@ -99,11 +99,6 @@ jobs:
       STELLAR_NETWORK_PASSPHRASE: "Standalone Network ; February 2017"
       STELLAR_ACCOUNT: default
       STELLAR_CONTRACT_ID: core
-      # The floating `testing` tag moves to new RPC releases, which only
-      # simulate the current and previous protocol. Pin an image that still
-      # simulates the protocol the stellar-cli pin targets; bump it alongside
-      # that pin.
-      QUICKSTART_IMAGE_TAG: v678-b1525.1-testing
     steps:
       - uses: actions/checkout@v6
       - uses: taiki-e/install-action@just
@@ -120,8 +115,8 @@ jobs:
             echo "Could not derive protocol version from stellar-cli pin in Cargo.toml" >&2
             exit 1
           fi
-          echo "Starting local network at protocol $PROTOCOL_VERSION with quickstart:$QUICKSTART_IMAGE_TAG"
-          stellar container start local --protocol-version "$PROTOCOL_VERSION" --image-tag-override "$QUICKSTART_IMAGE_TAG"
+          echo "Starting local network at protocol $PROTOCOL_VERSION"
+          stellar container start local --protocol-version "$PROTOCOL_VERSION"
           echo "Waiting for RPC + friendbot to become healthy..."
           for _ in $(seq 1 50); do
             if curl --no-progress-meter --fail-with-body -X POST "http://localhost:8000/soroban/rpc" \
