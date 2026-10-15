@@ -2955,7 +2955,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3586,7 +3586,7 @@ checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
  "ed25519-dalek",
  "ows-signer",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 0.0.16",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -4283,7 +4283,7 @@ dependencies = [
  "stellar-build",
  "stellar-registry-name",
  "stellar-rpc-client",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 1.0.0",
  "thiserror 2.0.18",
 ]
 
@@ -4310,7 +4310,7 @@ dependencies = [
  "stellar-registry-build",
  "stellar-registry-test",
  "stellar-rpc-client",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 1.0.0",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -4324,7 +4324,7 @@ dependencies = [
  "sha2 0.11.1",
  "stellar-build",
  "stellar-registry-name",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 1.0.0",
  "stellar-xdr 30.0.0",
  "syn 2.0.117",
 ]
@@ -4348,7 +4348,7 @@ dependencies = [
  "reflink-copy",
  "soroban-cli",
  "soroban-sdk",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 1.0.0",
  "tokio",
  "tokio-stream",
  "uuid",
