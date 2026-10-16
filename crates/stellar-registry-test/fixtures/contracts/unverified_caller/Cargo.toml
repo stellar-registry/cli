@@ -1,0 +1,26 @@
+[package]
+name = "unverified_caller"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Tests `import_contract!` + `register_import!` against a contract that is
+# really registered on testnet: the root registry's `unverified` subregistry.
+#
+# Excluded from the repo workspace: `import_contract!(env, unverified)` only
+# resolves on testnet, so a default (`local`) workspace build could not
+# compile it. `just test-register-import-testnet` runs it online.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+# Same requirement as the root workspace's soroban-sdk.
+soroban-sdk = "28.0.0"
+stellar-registry = { path = "../../../../stellar-registry" }
+
+[dev-dependencies]
+soroban-sdk = { version = "28.0.0", features = ["testutils"] }
+stellar-registry = { path = "../../../../stellar-registry", features = ["testutils"] }

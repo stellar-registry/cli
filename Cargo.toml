@@ -3,7 +3,10 @@ resolver = "2"
 default-members = ["crates/*"]
 members = ["crates/*", "crates/stellar-registry-test/fixtures/contracts/*"]
 # Needs seeded `import_contract!` cache files to compile; see its Cargo.toml.
-exclude = ["crates/stellar-registry-test/fixtures/contracts/hello_caller"]
+exclude = [
+    "crates/stellar-registry-test/fixtures/contracts/hello_caller",
+    "crates/stellar-registry-test/fixtures/contracts/unverified_caller",
+]
 
 [workspace.package]
 repository = "https://github.com/stellar-registry/cli"
