@@ -4,8 +4,8 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 
-# Demonstrates `import_contract!(env, xlm)` for Stellar Asset Contracts,
-# with no wasm/name to register — see src/lib.rs.
+# Demonstrates `import_contract!(env, xlm)` for Stellar Asset Contracts, and
+# testing it with `register_import!` — see src/lib.rs.
 
 [package.metadata.stellar]
 # Set contract metadata for authors, homepage, and version based on the Cargo.toml package values
@@ -21,3 +21,4 @@ stellar-registry = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+stellar-registry = { workspace = true, features = ["testutils"] }

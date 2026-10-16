@@ -49,10 +49,11 @@ _test-integration package filter ci="false":
 test-integration-registry ci="false":
     just _test-integration stellar-registry-cli 'test(/./)' {{ ci }}
 
-# Test the hello_caller fixture (import_contract! + register_import!) offline, seeding the cache files import_contract! would otherwise fetch
+# Test the fixtures that use import_contract! + register_import!: xlm_tip_jar, and hello_caller offline, seeding the cache files import_contract! would otherwise fetch
 test-register-import:
     #!/usr/bin/env bash
     set -euo pipefail
+    cargo test --package xlm_tip_jar
     fixture=crates/stellar-registry-test/fixtures/contracts/hello_caller
     deployed=$fixture/target/stellar/local/deployed
     stellar contract build --profile contracts --package hello_v1
