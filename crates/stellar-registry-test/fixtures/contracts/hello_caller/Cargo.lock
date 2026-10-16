@@ -1820,6 +1820,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2",
+ "soroban-spec",
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",

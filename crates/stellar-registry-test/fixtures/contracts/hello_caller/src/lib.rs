@@ -47,7 +47,7 @@ mod test {
         let env = Env::default();
         let admin = Address::generate(&env);
         // `hello_v1`'s constructor takes an admin.
-        register_import!(&env, hello_v1, args = (&admin,));
+        register_import!(&env, hello_v1, args = { admin });
 
         assert_eq!(greet(&env, "world"), String::from_str(&env, "world"));
     }
@@ -64,7 +64,7 @@ mod test {
     fn registers_at_the_same_address_either_way() {
         let env = Env::default();
         let admin = Address::generate(&env);
-        let wasm = register_import!(&env, hello_v1, args = (&admin,));
+        let wasm = register_import!(&env, hello_v1, args = { admin });
         let mock = register_import!(&env, hello_v1, contract = MockHello);
 
         assert_eq!(wasm, mock);

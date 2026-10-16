@@ -88,8 +88,8 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// let env = Env::default();
 /// // The imported contract's own Wasm, as cached by `import_contract!`:
 /// register_import!(&env, our_dao);
-/// // ...with constructor arguments:
-/// register_import!(&env, our_dao, args = (&admin, 7u32));
+/// // ...with constructor arguments, by name:
+/// register_import!(&env, our_dao, args = { admin, quorum: 7u32 });
 /// // ...or a native mock in place of the Wasm:
 /// register_import!(&env, our_dao, contract = MockDao);
 /// ```
@@ -98,11 +98,16 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///   and resolved by the same code, so both macros always agree on the
 ///   address and Wasm (same cache files, same `STELLAR_NO_REGISTRY`
 ///   handling, same flagged-contract check).
-/// - `args = (..)` is the constructor-argument tuple, as for `Env::register`
-///   (`()` when omitted).
+/// - `args = { name: value, .. }` passes constructor arguments by parameter
+///   name, read from the imported Wasm's constructor; `{ admin }` is
+///   shorthand for `{ admin: admin }`. Values are borrowed, not moved, and
+///   type-checked against the constructor. Leaving out `args` when the
+///   constructor takes parameters is a compile error that lists them. A
+///   positional tuple, `args = (..)`, also works.
 /// - `contract = <expr>` registers a native `#[contract]` type instead of the
-///   Wasm, for when you want to control what the dependency returns. `args`
-///   then go to the mock's constructor.
+///   Wasm, for when you want to control what the dependency returns. Its
+///   constructor arguments are a tuple, `args = (..)`, since a mock has no
+///   spec to name them by.
 ///
 /// Exported as `stellar_registry::testutils::register_import!`, behind
 /// `stellar-registry`'s `testutils` feature. The expansion calls
