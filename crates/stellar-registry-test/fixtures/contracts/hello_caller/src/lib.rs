@@ -6,7 +6,7 @@
 //! this contract at build time, and nothing lives at that address in a
 //! sandboxed test `Env`. `register_import!` resolves the same name the same
 //! way and registers a contract there — `hello_v1`'s own Wasm, or a native
-//! mock — so `Contract` below needs no `#[cfg(test)]` seam.
+//! mock.
 use soroban_sdk::{Env, String, contract, contractimpl};
 
 #[contract]
