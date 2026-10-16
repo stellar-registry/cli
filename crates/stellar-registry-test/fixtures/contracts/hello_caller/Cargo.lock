@@ -345,6 +345,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "const-oid"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -591,7 +597,7 @@ version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
- "const-oid",
+ "const-oid 0.9.6",
  "zeroize",
 ]
 
@@ -622,7 +628,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
- "const-oid",
+ "const-oid 0.9.6",
  "crypto-common 0.1.6",
  "subtle",
 ]
@@ -634,6 +640,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.1",
+ "const-oid 0.10.2",
  "crypto-common 0.2.2",
 ]
 
@@ -697,7 +704,7 @@ dependencies = [
  "ed25519",
  "rand_core",
  "serde",
- "sha2",
+ "sha2 0.10.9",
  "subtle",
  "zeroize",
 ]
@@ -1115,7 +1122,7 @@ dependencies = [
  "cfg-if",
  "ecdsa",
  "elliptic-curve",
- "sha2",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1222,7 +1229,7 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "primeorder",
- "sha2",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1536,6 +1543,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
+]
+
+[[package]]
 name = "sha3"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1600,7 +1618,7 @@ dependencies = [
  "soroban-env-macros",
  "soroban-wasmi",
  "static_assertions",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "wasmparser",
 ]
 
@@ -1641,7 +1659,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "sec1",
- "sha2",
+ "sha2 0.10.9",
  "sha3",
  "soroban-builtin-sdk-macros",
  "soroban-env-common",
@@ -1662,7 +1680,7 @@ dependencies = [
  "quote",
  "serde",
  "serde_json",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.119",
 ]
 
@@ -1716,11 +1734,11 @@ dependencies = [
  "macro-string",
  "proc-macro2",
  "quote",
- "sha2",
+ "sha2 0.10.9",
  "soroban-env-common",
  "soroban-spec",
  "soroban-spec-rust",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.119",
 ]
 
@@ -1731,8 +1749,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f48c8e183fc140ccd89e1fe1663cc605fb18641967c0bb591f64887599fde59"
 dependencies = [
  "base64 0.22.1",
- "sha2",
- "stellar-xdr",
+ "sha2 0.10.9",
+ "stellar-xdr 28.0.0",
  "thiserror 1.0.69",
  "wasmparser",
 ]
@@ -1746,9 +1764,9 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "sha2",
+ "sha2 0.10.9",
  "soroban-spec",
- "stellar-xdr",
+ "stellar-xdr 28.0.0",
  "syn 2.0.119",
  "thiserror 1.0.69",
 ]
@@ -1801,7 +1819,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fd5e3be902a9658fb9f642d4eef7837ab1d51e52dde9be1d9b218326499d97"
 dependencies = [
  "cargo_metadata",
- "sha2",
+ "sha2 0.10.9",
  "thiserror 2.0.21",
  "topological-sort",
 ]
@@ -1819,12 +1837,12 @@ version = "0.1.1"
 dependencies = [
  "proc-macro2",
  "quote",
- "sha2",
+ "sha2 0.11.1",
  "soroban-spec",
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",
- "stellar-xdr",
+ "stellar-xdr 30.0.0",
  "syn 2.0.119",
 ]
 
@@ -1870,6 +1888,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellar-strkey"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5038ed2bf4e11842210d118f65791d8ca4747622daddd222338b3d06b6051bc1"
+dependencies = [
+ "crate-git-revision 0.0.9",
+ "data-encoding",
+ "heapless 0.9.3",
+ "zeroize",
+]
+
+[[package]]
 name = "stellar-xdr"
 version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1884,8 +1914,22 @@ dependencies = [
  "hex",
  "serde",
  "serde_with",
- "sha2",
+ "sha2 0.10.9",
  "stellar-strkey 0.0.13",
+]
+
+[[package]]
+name = "stellar-xdr"
+version = "30.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56f2fb2008b42fc746c0f6b46e375600068dd91f07748e9f1737c6341a2255f2"
+dependencies = [
+ "crate-git-revision 0.0.9",
+ "escape-bytes",
+ "ethnum",
+ "hex",
+ "sha2 0.10.9",
+ "stellar-strkey 1.0.0",
 ]
 
 [[package]]

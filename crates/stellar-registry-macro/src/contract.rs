@@ -12,7 +12,7 @@ use syn::{
 
 use stellar_registry_name::Prefixed;
 
-use stellar_xdr::{ScSpecEntry, ScSpecTypeDef};
+use stellar_xdr::{Limited, Limits, ReadXdr, ScSpecEntry, ScSpecTypeDef};
 
 use crate::asset;
 use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
@@ -499,8 +499,15 @@ pub(crate) fn import_contract(
 /// The constructor's parameters (name and type), read from the contract spec
 /// embedded in the Wasm; `None` if the contract has no constructor.
 fn constructor_params(wasm: &[u8]) -> Result<Option<Vec<(String, ScSpecTypeDef)>>, String> {
-    let entries = soroban_spec::read::from_wasm(wasm)
-        .map_err(|e| format!("could not read the contract spec from the Wasm: {e}"))?;
+    let err =
+        |e: &dyn std::fmt::Display| format!("could not read the contract spec from the Wasm: {e}");
+    // Only the raw section comes from soroban-spec; it is parsed with this
+    // crate's stellar-xdr, which needn't match soroban-spec's.
+    let raw = soroban_spec::read::raw_from_wasm(wasm).map_err(|e| err(&e))?;
+    let mut reader = Limited::new(std::io::Cursor::new(raw), Limits::none());
+    let entries = ScSpecEntry::read_xdr_iter(&mut reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| err(&e))?;
     Ok(entries.into_iter().find_map(|entry| match entry {
         ScSpecEntry::FunctionV0(f) if f.name.to_utf8_string_lossy() == "__constructor" => Some(
             f.inputs
