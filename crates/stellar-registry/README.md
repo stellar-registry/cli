@@ -71,7 +71,13 @@ Two options, in either order:
 - `args = (..)` passes constructor arguments, as a tuple like `Env::register` takes: `register_import!(&env, our_dao, args = (&admin, 7u32))`.
 - `contract = ..` registers a native contract in place of the Wasm, when you want to control what the dependency returns: `register_import!(&env, our_dao, contract = MockDao)`. `MockDao` is an ordinary `#[contract]` type with the functions your contract calls.
 
-Both macros read the same cache files (`target/stellar/<network>/deployed/<name>.id` and `.wasm`), so once `import_contract!` has built, `register_import!` needs nothing more. To run tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and create those two files first (`stellar registry fetch-contract-id` and `stellar contract fetch`, or commit copies and put them in place before building). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) is a complete example, run by `just test-register-import`.
+Running tests is an ordinary build, so there is nothing to build first. Both macros resolve the name at compile time on the network the build uses, and share the cached id and Wasm (`target/stellar/<network>/deployed/<name>.id` and `.wasm`). Run tests on a network where the name is registered:
+
+```bash
+STELLAR_NETWORK=testnet cargo test
+```
+
+For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by `just test-register-import`.
 
 ### Testing Stellar Asset Contracts
 
