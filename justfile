@@ -62,9 +62,9 @@ test-register-import:
     echo CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322 > $deployed/hello_v1.id
     STELLAR_NO_REGISTRY=1 STELLAR_NETWORK=local cargo test --manifest-path $fixture/Cargo.toml
 
-# Test the unverified_caller fixture against testnet
+# Test the token_caller fixture against testnet
 test-register-import-testnet: build
-    STELLAR_NETWORK=testnet cargo test --manifest-path crates/stellar-registry-test/fixtures/contracts/unverified_caller/Cargo.toml
+    STELLAR_NETWORK=testnet cargo test --manifest-path crates/stellar-registry-test/fixtures/contracts/token_caller/Cargo.toml
 
 clippy *args:
     cargo clippy --all {{ args }} \

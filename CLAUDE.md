@@ -58,7 +58,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 - Unit tests run without external dependencies.
 - Integration tests require a local Stellar RPC (Docker `stellar/quickstart`) and the `integration-tests` feature flag.
 - `just test-register-import` runs the `hello_caller` fixture, which is excluded from the workspace because `import_contract!` needs seeded cache files to compile.
-- `just test-register-import-testnet` runs the `unverified_caller` fixture against testnet; it needs network access, so CI doesn't run it.
+- `just test-register-import-testnet` runs the `token_caller` fixture against testnet; it needs network access, so CI doesn't run it.
 - Command tests use `stellar_registry_test::RegistryTest`, defined in local crate `crates/stellar-registry-test`
 
 ## Cross-repo dependencies

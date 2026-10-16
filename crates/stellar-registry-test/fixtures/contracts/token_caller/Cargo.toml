@@ -1,11 +1,11 @@
 [package]
-name = "unverified_caller"
+name = "token_caller"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
-# Imports `unverified`, which only resolves on testnet, so it can't be a
-# workspace member. Run with `just test-register-import-testnet`.
+# Imports `unverified/my-token`, which only resolves on testnet, so it can't
+# be a workspace member. Run with `just test-register-import-testnet`.
 [workspace]
 
 [lib]
