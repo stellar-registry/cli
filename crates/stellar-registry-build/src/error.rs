@@ -9,6 +9,8 @@ pub enum Error {
     InvalidContractId(String),
     #[error("contract `{0}` is flagged as compromised in the registry")]
     ContractFlagged(String),
+    #[error("Invalid address: {0}")]
+    InvalidAddress(String),
     #[error(transparent)]
     Invoke(#[from] invoke::Error),
     #[error(transparent)]

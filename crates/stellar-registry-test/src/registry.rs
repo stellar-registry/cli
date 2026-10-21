@@ -176,6 +176,23 @@ impl RegistryTest {
         registry.arg(config_dir(&self.env.cwd).to_str().unwrap());
         registry
     }
+    /// Generate and fund a local identity `name`; returns its G-address.
+    pub async fn generate_funded_identity(&self, name: &str) -> String {
+        Self::parse_cmd_internal::<keys::generate::Cmd>(&self.env, &[name, "--fund"])
+            .unwrap()
+            .run(&global::Args::default())
+            .await
+            .unwrap();
+        Self::parse_cmd_internal::<keys::public_key::Cmd>(&self.env, &[name])
+            .unwrap()
+            .public_key()
+            .await
+            .unwrap()
+            .to_string()
+            .as_str()
+            .to_string()
+    }
+
     pub fn hello_wasm_v1(&self) -> PathBuf {
         RandomizedWasm::new("hello_v1.wasm").randomize(&self.env.cwd)
     }

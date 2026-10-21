@@ -75,19 +75,41 @@ impl Registry {
     /// `ContractKey` / `ContractEntry` (stellar-registry/contracts
     /// `src/storage.rs`); coupled to that encoding by design.
     pub async fn is_contract_flagged(&self, name: &str) -> Result<bool, Error> {
+        self.is_entry_flagged("CR", name).await
+    }
+
+    /// Is the named account flagged as compromised in this (sub)registry?
+    /// Same encoding as contracts, under the registry's `AccountKey` ("AC").
+    pub async fn is_account_flagged(&self, name: &str) -> Result<bool, Error> {
+        self.is_entry_flagged("AC", name).await
+    }
+
+    async fn is_entry_flagged(&self, prefix: &str, name: &str) -> Result<bool, Error> {
         use stellar_cli::xdr;
         let canonical = name::canonicalize(name);
         let key = xdr::ScVal::Vec(Some(
             vec![
-                xdr::ScVal::Symbol(xdr::ScSymbol("CR".try_into()?)),
+                xdr::ScVal::Symbol(xdr::ScSymbol(prefix.try_into()?)),
                 xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
             ]
             .try_into()?,
         ));
+        Ok(self
+            .contract_data(key, xdr::ContractDataDurability::Persistent)
+            .await?
+            .is_some_and(|val| matches!(val, xdr::ScVal::Vec(Some(v)) if v.len() == 3)))
+    }
+
+    async fn contract_data(
+        &self,
+        key: stellar_cli::xdr::ScVal,
+        durability: stellar_cli::xdr::ContractDataDurability,
+    ) -> Result<Option<stellar_cli::xdr::ScVal>, Error> {
+        use stellar_cli::xdr;
         let ledger_key = xdr::LedgerKey::ContractData(xdr::LedgerKeyContractData {
             contract: self.0.sc_address(),
             key,
-            durability: xdr::ContractDataDurability::Persistent,
+            durability,
         });
         let entries = self
             .0
@@ -95,12 +117,69 @@ impl Registry {
             .get_full_ledger_entries(&[ledger_key])
             .await?
             .entries;
-        Ok(entries.into_iter().any(|e| match e.val {
-            xdr::LedgerEntryData::ContractData(cd) => {
-                matches!(cd.val, xdr::ScVal::Vec(Some(v)) if v.len() == 3)
-            }
-            _ => false,
+        Ok(entries.into_iter().find_map(|e| match e.val {
+            xdr::LedgerEntryData::ContractData(cd) => Some(cd.val),
+            _ => None,
         }))
+    }
+
+    /// The registry's manager, if it has one (a *managed* registry).
+    pub async fn manager(&self) -> Result<Option<String>, Error> {
+        let manager = self.0.invoke_with_result(&["manager"], true).await?;
+        let manager = manager.trim();
+        Ok((manager != "null").then(|| manager.trim_matches('"').to_string()))
+    }
+
+    pub async fn fetch_account_id(&self, name: &str) -> Result<String, Error> {
+        let slop = ["fetch_account_id", "--account-name", name];
+        Ok(self
+            .0
+            .invoke_with_result(&slop, true)
+            .await?
+            .trim_matches('"')
+            .to_string())
+    }
+
+    pub async fn fetch_account_owner(&self, name: &str) -> Result<String, Error> {
+        let slop = ["fetch_account_owner", "--account-name", name];
+        Ok(self
+            .0
+            .invoke_with_result(&slop, true)
+            .await?
+            .trim_matches('"')
+            .to_string())
+    }
+
+    /// The owner `address` preauthorized being named `name` under, if it has
+    /// an unexpired `preauthorize_account` here. There is no getter, so this
+    /// reads the temporary entry the registry keys by `(<canonical name>,
+    /// address)` (stellar-registry/contracts `preauth_accounts`).
+    pub async fn account_preauth_owner(
+        &self,
+        name: &str,
+        address: &str,
+    ) -> Result<Option<String>, Error> {
+        use stellar_cli::xdr;
+        let address: xdr::ScAddress = address
+            .parse()
+            .map_err(|_| Error::InvalidAddress(address.to_string()))?;
+        let canonical = name::canonicalize(name);
+        let key = xdr::ScVal::Vec(Some(
+            vec![
+                xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
+                xdr::ScVal::Address(address),
+            ]
+            .try_into()?,
+        ));
+        Ok(
+            match self
+                .contract_data(key, xdr::ContractDataDurability::Temporary)
+                .await?
+            {
+                Some(xdr::ScVal::Address(owner)) => Some(owner.to_string()),
+                _ => None,
+            },
+        )
     }
 
     pub fn as_contract(&self) -> &Contract {
