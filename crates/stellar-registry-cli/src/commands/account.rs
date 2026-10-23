@@ -159,7 +159,8 @@ pub async fn require_consent(
     if account == operator.address {
         return Ok(());
     }
-    if operator.managed {
+    // Only useful to someone who isn't the manager, e.g. preparing a proposal.
+    if operator.managed && !operator.can_sign {
         eprintln!(
             "Note: this registry is managed by {}. Its call (e.g. an executed governance \
              proposal) can only name {account} `{}` if {account} has preauthorized that name for \
@@ -294,7 +295,8 @@ mod tests {
             .assert()
             .success()
             .stderr_as_str();
-        assert!(out.contains("managed by"), "{out}");
+        // alice is the manager here, so the governance note isn't for her.
+        assert!(!out.contains("managed by"), "{out}");
         assert!(out.contains("Using"), "{out}");
         assert_eq!(fetch(&registry, "fetch-account-id", "bob"), bob);
     }
@@ -325,6 +327,8 @@ mod tests {
             );
             assert!(!refused.contains("Successfully"), "{refused}");
             assert_eq!(refused.contains("Simulation OK."), dry_run, "{refused}");
+            // A non-manager does get the governance note on a dry run.
+            assert_eq!(refused.contains("managed by"), dry_run, "{refused}");
         }
     }
 
