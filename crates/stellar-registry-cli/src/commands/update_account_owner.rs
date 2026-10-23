@@ -63,6 +63,11 @@ impl Cmd {
             self.account_name,
             self.new_owner
         );
+        eprintln!(
+            "Note: preauthorizations are tied to an owner, so any made out to the previous owner \
+             {owner} (e.g. for an address update or rename of this account) no longer count. \
+             They have to be made again for the new owner."
+        );
         Ok(())
     }
 }
