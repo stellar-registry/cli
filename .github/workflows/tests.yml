@@ -110,13 +110,17 @@ jobs:
       # not match the protocol the test contracts are built for.
       - name: Start local Stellar network
         run: |
+          # The floating quickstart tag moves to new RPC releases, which only
+          # simulate the current and previous protocol, so pin an image that
+          # still simulates PROTOCOL_VERSION. Bump it alongside the protocol.
+          QUICKSTART_IMAGE_TAG=v678-b1525.1-latest
           PROTOCOL_VERSION=$(sed -n 's/.*stellar-cli = .*version = "\([0-9]*\).*/\1/p' Cargo.toml | head -1)
           if [ -z "$PROTOCOL_VERSION" ]; then
             echo "Could not derive protocol version from stellar-cli pin in Cargo.toml" >&2
             exit 1
           fi
-          echo "Starting local network at protocol $PROTOCOL_VERSION"
-          stellar container start local --protocol-version "$PROTOCOL_VERSION"
+          echo "Starting local network at protocol $PROTOCOL_VERSION with quickstart $QUICKSTART_IMAGE_TAG"
+          stellar container start local --protocol-version "$PROTOCOL_VERSION" --image-tag-override "$QUICKSTART_IMAGE_TAG"
           echo "Waiting for RPC + friendbot to become healthy..."
           for _ in $(seq 1 50); do
             if curl --no-progress-meter --fail-with-body -X POST "http://localhost:8000/soroban/rpc" \
