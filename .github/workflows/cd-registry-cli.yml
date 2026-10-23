@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - crates/stellar-registry-cli/CHANGELOG.md
+      - .github/workflows/cd-registry-cli.yml
 env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_GIT_FETCH_WITH_CLI: true
@@ -39,7 +40,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
           - target: x86_64-apple-darwin
-            os: macos-14
+            os: macos-26
           - target: x86_64-pc-windows-msvc
             os: windows-2022
           - target: x86_64-unknown-linux-musl
@@ -49,17 +50,19 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-22.04
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-26
           - target: x86_64-unknown-freebsd
             os: ubuntu-22.04
-          - target: universal-apple-darwin
-            os: macos-14
     timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
       - if: runner.os == 'Linux'
         run: sudo apt-get update
       - uses: taiki-e/install-action@cross
