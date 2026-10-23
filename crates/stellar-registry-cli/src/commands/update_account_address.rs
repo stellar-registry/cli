@@ -41,9 +41,14 @@ impl Cmd {
         let owner = registry
             .fetch_account_owner(self.account_name.name())
             .await?;
+        let operator = account::operator(&registry, &self.config, &owner, None).await?;
+        if !self.dry_run {
+            operator.require_signer(false)?;
+        }
         account::require_consent(
             &registry,
             &self.config,
+            &operator,
             &account::Naming {
                 name: self.account_name.name(),
                 display_name: self.account_name.to_string(),
@@ -62,6 +67,9 @@ impl Cmd {
             &self.new_address,
         ];
         registry.as_contract().invoke(&args, self.dry_run).await?;
+        if self.dry_run {
+            operator.require_signer(true)?;
+        }
 
         eprintln!(
             "{}Successfully pointed account '{}' at {}",

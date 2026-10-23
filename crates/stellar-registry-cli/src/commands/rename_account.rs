@@ -42,9 +42,14 @@ impl Cmd {
         let name = self.account_name.name();
         let address = registry.fetch_account_id(name).await?;
         let owner = registry.fetch_account_owner(name).await?;
+        let operator = account::operator(&registry, &self.config, &owner, None).await?;
+        if !self.dry_run {
+            operator.require_signer(false)?;
+        }
         account::require_consent(
             &registry,
             &self.config,
+            &operator,
             &account::Naming {
                 name: &self.new_name,
                 display_name: match self.account_name.channel() {
@@ -68,6 +73,9 @@ impl Cmd {
             &self.new_name,
         ];
         registry.as_contract().invoke(&args, self.dry_run).await?;
+        if self.dry_run {
+            operator.require_signer(true)?;
+        }
 
         eprintln!(
             "{}Successfully renamed account '{}' to '{}'",

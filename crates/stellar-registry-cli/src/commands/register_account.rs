@@ -47,14 +47,21 @@ impl Cmd {
             None => account::source_address(&self.config)?,
         };
         let registry = Registry::new(&self.config, self.account_name.channel()).await?;
+        let owner_address = account::resolve_address(&self.config, &owner);
+        let operator =
+            account::operator(&registry, &self.config, &owner_address, Some(&owner)).await?;
+        if !self.dry_run {
+            operator.require_signer(false)?;
+        }
         account::require_consent(
             &registry,
             &self.config,
+            &operator,
             &account::Naming {
                 name: self.account_name.name(),
                 display_name: self.account_name.to_string(),
                 account: &self.account_address,
-                owner: &account::resolve_address(&self.config, &owner),
+                owner: &owner_address,
                 account_is_arg: true,
             },
         )
@@ -70,6 +77,9 @@ impl Cmd {
             &owner,
         ];
         registry.as_contract().invoke(&args, self.dry_run).await?;
+        if self.dry_run {
+            operator.require_signer(true)?;
+        }
 
         eprintln!(
             "{}Successfully registered account '{}' as {}",

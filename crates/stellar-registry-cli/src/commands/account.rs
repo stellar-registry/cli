@@ -23,6 +23,12 @@ pub enum Error {
         "{0} has to sign this. Run it with --source set to its identity, or pass its identity's alias as the address{1}"
     )]
     NeedsSigner(String, &'static str),
+    #[error("{prefix}this needs {operator}'s signature, which the CLI doesn't have. {hint}")]
+    OperatorMustSign {
+        prefix: &'static str,
+        operator: String,
+        hint: &'static str,
+    },
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
@@ -75,6 +81,59 @@ fn is_smart_account(address: &str) -> bool {
     stellar_strkey::Contract::from_str(address).is_ok()
 }
 
+/// Who has to authorize an owner-or-manager call (the manager if the registry
+/// has one, otherwise the owner), and whether the CLI can sign for them.
+pub struct Operator {
+    pub address: String,
+    pub managed: bool,
+    can_sign: bool,
+}
+
+/// `owner_arg` is the owner as passed to the call, when the call takes it, so
+/// stellar-cli can sign for it with a local identity.
+pub async fn operator(
+    registry: &Registry,
+    config: &config::Args,
+    owner: &str,
+    owner_arg: Option<&str>,
+) -> Result<Operator, Error> {
+    let registry_manager = registry.manager().await?;
+    let managed = registry_manager.is_some();
+    let address = registry_manager.unwrap_or_else(|| owner.to_string());
+    let can_sign = address == source_address(config)?
+        || (!managed && owner_arg.is_some_and(|arg| has_local_signer(config, arg)));
+    Ok(Operator {
+        address,
+        managed,
+        can_sign,
+    })
+}
+
+impl Operator {
+    /// Fail a call the CLI can't get signed. For a real run, call this before
+    /// submitting; for a dry run, after simulating, so the simulation result
+    /// is still shown but the run doesn't read as a success.
+    pub fn require_signer(&self, dry_run: bool) -> Result<(), Error> {
+        if self.can_sign {
+            return Ok(());
+        }
+        Err(Error::OperatorMustSign {
+            prefix: if dry_run {
+                "The dry run simulated, but it can't be submitted from here: "
+            } else {
+                ""
+            },
+            operator: self.address.clone(),
+            hint: if self.managed {
+                "This registry is managed, so its manager has to make this call, e.g. by \
+                 executing a governance proposal."
+            } else {
+                "Run it with --source set to the owner's identity."
+            },
+        })
+    }
+}
+
 /// What a naming call (register, update address, rename) is about to do.
 pub struct Naming<'a> {
     /// Name as the registry stores it, without a channel prefix
@@ -97,21 +156,20 @@ pub struct Naming<'a> {
 pub async fn require_consent(
     registry: &Registry,
     config: &config::Args,
+    operator: &Operator,
     naming: &Naming<'_>,
 ) -> Result<(), Error> {
     let account = resolve_address(config, naming.account);
-    let manager = registry.manager().await?;
-    if let Some(manager) = &manager {
+    if account == operator.address {
+        return Ok(());
+    }
+    if operator.managed {
         eprintln!(
-            "Note: this registry is managed by {manager}. Its call (e.g. an executed governance \
+            "Note: this registry is managed by {}. Its call (e.g. an executed governance \
              proposal) can only name {account} `{}` if {account} has preauthorized that name for \
              owner {}, or signs the call.",
-            naming.display_name, naming.owner
+            operator.address, naming.display_name, naming.owner
         );
-    }
-    let operator = manager.unwrap_or_else(|| naming.owner.to_string());
-    if account == operator {
-        return Ok(());
     }
     if registry
         .account_preauth_owner(naming.name, &account)
@@ -243,6 +301,60 @@ mod tests {
         assert!(out.contains("managed by"), "{out}");
         assert!(out.contains("Using"), "{out}");
         assert_eq!(fetch(&registry, "fetch-account-id", "bob"), bob);
+    }
+
+    // Bob isn't the root's manager, so neither a dry run nor a real run may
+    // read as a success.
+    #[tokio::test]
+    async fn managed_registry_without_the_manager_key_is_refused() {
+        let registry = RegistryTest::new().await;
+        registry.generate_funded_identity("bob").await;
+        for dry_run in [true, false] {
+            let mut cmd = registry.registry_cli("register-account");
+            cmd.args([
+                "--account-name",
+                "bob",
+                "--account-address",
+                "bob",
+                "--source",
+                "bob",
+            ]);
+            if dry_run {
+                cmd.arg("--dry-run");
+            }
+            let refused = cmd.assert().failure().stderr_as_str();
+            assert!(
+                refused.contains("its manager has to make this call"),
+                "{refused}"
+            );
+            assert!(!refused.contains("Successfully"), "{refused}");
+            assert_eq!(refused.contains("dry run simulated"), dry_run, "{refused}");
+        }
+    }
+
+    #[tokio::test]
+    async fn unmanaged_calls_need_the_owner_key() {
+        let registry = RegistryTest::new().await;
+        registry.generate_funded_identity("bob").await;
+        registry
+            .registry_cli("register-account")
+            .args([
+                "--account-name",
+                "unverified/bob",
+                "--account-address",
+                "bob",
+            ])
+            .assert()
+            .success();
+
+        // alice owns it; bob can't sign as owner.
+        let refused = registry
+            .registry_cli("flag-account")
+            .args(["--account-name", "unverified/bob", "--source", "bob"])
+            .assert()
+            .failure()
+            .stderr_as_str();
+        assert!(refused.contains("--source set to the owner"), "{refused}");
     }
 
     #[tokio::test]
