@@ -85,19 +85,13 @@ impl Registry {
     }
 
     async fn is_entry_flagged(&self, prefix: &str, name: &str) -> Result<bool, Error> {
-        use stellar_cli::xdr;
-        let canonical = name::canonicalize(name);
-        let key = xdr::ScVal::Vec(Some(
-            vec![
-                xdr::ScVal::Symbol(xdr::ScSymbol(prefix.try_into()?)),
-                xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
-            ]
-            .try_into()?,
-        ));
         Ok(self
-            .contract_data(key, xdr::ContractDataDurability::Persistent)
+            .contract_data(
+                entry_key(prefix, name)?,
+                stellar_cli::xdr::ContractDataDurability::Persistent,
+            )
             .await?
-            .is_some_and(|val| matches!(val, xdr::ScVal::Vec(Some(v)) if v.len() == 3)))
+            .is_some_and(|val| is_flagged_entry(&val)))
     }
 
     async fn contract_data(
@@ -172,20 +166,12 @@ impl Registry {
         address: &str,
     ) -> Result<Option<String>, Error> {
         use stellar_cli::xdr;
-        let address: xdr::ScAddress = address
-            .parse()
-            .map_err(|_| Error::InvalidAddress(address.to_string()))?;
-        let canonical = name::canonicalize(name);
-        let key = xdr::ScVal::Vec(Some(
-            vec![
-                xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
-                xdr::ScVal::Address(address),
-            ]
-            .try_into()?,
-        ));
         Ok(
             match self
-                .contract_data(key, xdr::ContractDataDurability::Temporary)
+                .contract_data(
+                    account_preauth_key(name, address)?,
+                    xdr::ContractDataDurability::Temporary,
+                )
                 .await?
             {
                 Some(xdr::ScVal::Address(owner)) => Some(owner.to_string()),
@@ -208,6 +194,44 @@ impl Registry {
             config,
         )))
     }
+}
+
+/// Key of a contract (`"CR"`) or account (`"AC"`) entry in a registry's
+/// persistent storage: `(Symbol(prefix), <canonical name>)`. Mirrors the
+/// registry contract's `ContractKey` / `AccountKey`.
+fn entry_key(prefix: &str, name: &str) -> Result<stellar_cli::xdr::ScVal, Error> {
+    use stellar_cli::xdr;
+    let canonical = name::canonicalize(name);
+    Ok(xdr::ScVal::Vec(Some(
+        vec![
+            xdr::ScVal::Symbol(xdr::ScSymbol(prefix.try_into()?)),
+            xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
+        ]
+        .try_into()?,
+    )))
+}
+
+/// Entries are a 2-tuple when unflagged and a 3-tuple (trailing `Void`) when
+/// flagged; the length carries the flag.
+fn is_flagged_entry(val: &stellar_cli::xdr::ScVal) -> bool {
+    matches!(val, stellar_cli::xdr::ScVal::Vec(Some(v)) if v.len() == 3)
+}
+
+/// Key of an account preauthorization in a registry's temporary storage:
+/// `(<canonical name>, address)`. Mirrors the contract's `preauth_accounts`.
+fn account_preauth_key(name: &str, address: &str) -> Result<stellar_cli::xdr::ScVal, Error> {
+    use stellar_cli::xdr;
+    let address: xdr::ScAddress = address
+        .parse()
+        .map_err(|_| Error::InvalidAddress(address.to_string()))?;
+    let canonical = name::canonicalize(name);
+    Ok(xdr::ScVal::Vec(Some(
+        vec![
+            xdr::ScVal::String(xdr::ScString(canonical.as_str().try_into()?)),
+            xdr::ScVal::Address(address),
+        ]
+        .try_into()?,
+    )))
 }
 
 /// Stellar Address for G account for registry project
@@ -271,5 +295,50 @@ mod generate_id {
             LOCAL,
             &expect!["CA55VGAFPIZHOY2X26KANRJYFBWPEXGNLIEHR7Q5TR2576HKHOFPLBTX"],
         );
+    }
+}
+
+// These pin the storage layout the account and flag reads depend on. If the
+// registry contract changes it, update both sides together.
+#[cfg(test)]
+mod storage_keys {
+    use expect_test::expect;
+    use stellar_cli::xdr::{self, Limits, WriteXdr};
+
+    const G: &str = "GAMPJROHOAW662FINQ4XQOY2ULX5IEGYXCI4SMZYE75EHQBR6PSTJG3M";
+
+    fn b64(val: &xdr::ScVal) -> String {
+        val.to_xdr_base64(Limits::none()).unwrap()
+    }
+
+    #[test]
+    fn entry_keys_are_prefixed_canonical_names() {
+        let key = super::entry_key("AC", "My_Account").unwrap();
+        assert_eq!(key, super::entry_key("AC", "my-account").unwrap());
+        expect!["AAAAEAAAAAEAAAACAAAADwAAAAJBQwAAAAAADgAAAApteS1hY2NvdW50AAA="]
+            .assert_eq(&b64(&key));
+        expect!["AAAAEAAAAAEAAAACAAAADwAAAAJDUgAAAAAADgAAAApteS1hY2NvdW50AAA="]
+            .assert_eq(&b64(&super::entry_key("CR", "my-account").unwrap()));
+    }
+
+    #[test]
+    fn account_preauth_key_is_name_then_address() {
+        let key = super::account_preauth_key("My_Account", G).unwrap();
+        expect!["AAAAEAAAAAEAAAACAAAADgAAAApteS1hY2NvdW50AAAAAAASAAAAAAAAAAAY9MXHcC3vaKhsOXg7GqLv1BDYuJHJMzgn+kPAMfPlNA=="].assert_eq(&b64(&key));
+        assert!(super::account_preauth_key("x", "not-an-address").is_err());
+    }
+
+    #[test]
+    fn flag_is_the_entry_length() {
+        let addr = xdr::ScVal::Address(G.parse().unwrap());
+        let entry = |n: usize| {
+            let mut v = vec![addr.clone(), addr.clone()];
+            if n == 3 {
+                v.push(xdr::ScVal::Void);
+            }
+            xdr::ScVal::Vec(Some(v.try_into().unwrap()))
+        };
+        assert!(!super::is_flagged_entry(&entry(2)));
+        assert!(super::is_flagged_entry(&entry(3)));
     }
 }

@@ -217,6 +217,67 @@ pub fn require_signer(config: &config::Args, addr_or_alias: &str) -> Result<(), 
     Err(Error::NeedsSigner(address, note))
 }
 
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    const G: &str = "GAMPJROHOAW662FINQ4XQOY2ULX5IEGYXCI4SMZYE75EHQBR6PSTJG3M";
+    const C: &str = "CAAXJETKPYAATU4HVVQUTE2FFBULNFGZNEOC3MS635U5K3GZLAY2HI4M";
+
+    /// Config pointed at an empty directory, so no real identities are read.
+    fn empty_config(dir: &assert_fs::TempDir) -> config::Args {
+        let mut config = config::Args::default();
+        config.locator.config_dir = Some(dir.path().to_path_buf());
+        config
+    }
+
+    #[test]
+    fn resolves_strkeys_as_given() {
+        let dir = assert_fs::TempDir::new().unwrap();
+        let config = empty_config(&dir);
+        assert_eq!(resolve_address(&config, G), G);
+        assert_eq!(resolve_address(&config, C), C);
+        // Unknown aliases fall through unchanged.
+        assert_eq!(resolve_address(&config, "nobody"), "nobody");
+        assert!(!has_local_signer(&config, G));
+        assert!(is_smart_account(C) && !is_smart_account(G));
+    }
+
+    #[test]
+    fn muxed_accounts_resolve_to_their_base_account() {
+        let key: stellar_strkey::ed25519::PublicKey = G.parse().unwrap();
+        let plain = xdr::MuxedAccount::Ed25519(xdr::Uint256(key.0));
+        let muxed = xdr::MuxedAccount::MuxedEd25519(xdr::MuxedAccountMed25519 {
+            id: 7,
+            ed25519: xdr::Uint256(key.0),
+        });
+        assert_eq!(muxed_to_strkey(&plain), G);
+        assert_eq!(muxed_to_strkey(&muxed), G);
+    }
+
+    #[test]
+    fn signer_messages() {
+        let op = |managed, can_sign| Operator {
+            address: G.to_string(),
+            managed,
+            can_sign,
+        };
+        assert!(op(true, true).require_signer(true).is_ok());
+        let msg = |managed, dry_run| {
+            op(managed, false)
+                .require_signer(dry_run)
+                .unwrap_err()
+                .to_string()
+        };
+        assert!(msg(true, true).starts_with(
+            "Simulation OK. Submitting needs the registry manager's signature (governance)"
+        ));
+        assert!(msg(true, false).contains("nothing was submitted"));
+        assert!(msg(false, true).contains("needs the owner's signature"));
+        assert!(msg(false, false).contains("--source set to the owner"));
+    }
+}
+
 #[cfg(feature = "integration-tests")]
 #[cfg(test)]
 mod tests {
