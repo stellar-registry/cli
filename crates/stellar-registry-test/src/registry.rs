@@ -94,7 +94,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 "Standalone Network ; February 2017",
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse arguments for upload");
@@ -203,7 +203,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 network_passphrase,
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse subregistry upload");
