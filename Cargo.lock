@@ -4322,6 +4322,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.11.1",
+ "soroban-sdk",
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",

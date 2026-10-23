@@ -1,7 +1,7 @@
 //! Proc macros for the Stellar Registry: import deployed contracts
 //! (`import_contract!`), published wasms (`import_contract_client!`), and
-//! Stellar assets (`import_asset!`) as type-safe soroban clients, resolved at
-//! build time.
+//! Stellar assets (`import_asset!`) as type-safe soroban clients. Registry
+//! names resolve at build time; asset addresses are derived at runtime.
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
@@ -43,15 +43,16 @@ use util::ProcMacroWrapper as _;
 /// wasm are then required (build online once, or create them yourself with
 /// `stellar registry fetch-contract-id` and `stellar contract fetch`). Because
 /// a real on-chain address is baked in, if the named contract is redeployed,
-/// delete the cached files (or `cargo clean`) and rebuild.
+/// delete the cached files (or `cargo clean`) and rebuild. Changing
+/// `STELLAR_NETWORK` or `STELLAR_NETWORK_PASSPHRASE` triggers a rebuild.
 ///
 /// # Stellar Asset Contracts (SACs)
 ///
 /// A name is also accepted as an **asset** rather than a registered contract:
-/// `xlm`/`native`, or a `"CODE:ISSUER"` string. This resolves the SAC id
-/// offline (same computation as [`import_asset!`]) and binds the SDK's
-/// standard `token::TokenClient` to it — no registry lookup, no cache files,
-/// works under `STELLAR_NO_REGISTRY=1` with no setup:
+/// `xlm`/`native`, or a `"CODE:ISSUER"` string. This derives the SAC address
+/// at runtime for the executing network (as [`import_asset!`] does) and binds
+/// the SDK's standard `token::TokenClient` to it — no registry lookup, no cache
+/// files, and the same Wasm works on every network:
 ///
 /// ```ignore
 /// let xlm = stellar_registry::import_contract!(env, xlm);
@@ -98,8 +99,9 @@ pub fn import_contract_client(input: TokenStream) -> TokenStream {
 }
 
 /// Generate a module with the Stellar Asset Contract id and token clients for
-/// an asset, computed offline for the build-time network (`STELLAR_NETWORK` /
-/// `STELLAR_NETWORK_PASSPHRASE`, defaulting to local).
+/// an asset. The address is derived at runtime for the executing network, so
+/// the build-time network doesn't matter. An issued asset's issuer is still
+/// fixed by the macro input.
 ///
 /// ```ignore
 /// import_asset!("native"); // or "xlm"
