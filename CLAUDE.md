@@ -42,7 +42,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 | `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract` |
 | `stellar-registry-build` | Library for interacting with the registry at build time |
 | `stellar-registry-macro` | Macro crate defining procedural macros `import_contract!`, `import_contract_client!`, and `import_asset`. Proc-macro crates are special and need to only export proc-macros. |
-| `stellar-registry` | Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro`. Might export more behavior later. (published to crates.io; dev-dependency of `stellar-registry/contracts`) |
+| `stellar-registry` | Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro`. Its `testutils` feature adds `testutils::register_import!` for testing contracts that use `import_contract!`. Might export more behavior later. (published to crates.io; dev-dependency of `stellar-registry/contracts`) |
 | `stellar-registry-name` | Defines standard name parsing/formatting used by `stellar-registry-macro` and `stellar-registry-cli` |
 | `stellar-registry-test` | Unpublished testing tools used throughout this monorepo as a dev-dependency |
 
@@ -57,6 +57,8 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 - Unit tests run without external dependencies.
 - Integration tests require a local Stellar RPC (Docker `stellar/quickstart`) and the `integration-tests` feature flag.
+- `just test-register-import` runs the `hello_caller` fixture, which is excluded from the workspace because `import_contract!` needs seeded cache files to compile.
+- `just test-register-import-testnet` runs the `token_caller` fixture against testnet; it needs network access, so CI doesn't run it.
 - Command tests use `stellar_registry_test::RegistryTest`, defined in local crate `crates/stellar-registry-test`
 
 ## Cross-repo dependencies
