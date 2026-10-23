@@ -40,7 +40,8 @@ impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let registry = Registry::new(&self.config, self.account_name.channel()).await?;
         let name = self.account_name.name();
-        let address = registry.fetch_account_id(name).await?;
+        // Unchecked: renaming a flagged account is still the owner's call.
+        let address = registry.fetch_account_id_unchecked(name).await?;
         let owner = registry.fetch_account_owner(name).await?;
         let operator = account::operator(&registry, &self.config, &owner, None).await?;
         if !self.dry_run {

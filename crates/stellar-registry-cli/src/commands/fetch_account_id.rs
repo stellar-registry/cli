@@ -42,9 +42,14 @@ impl Cmd {
     pub async fn fetch_account_id(&self) -> Result<String, Error> {
         let registry = self.account_name.registry(&self.config).await?;
         let name = self.account_name.name();
-        if !self.force && registry.is_account_flagged(name).await? {
-            return Err(Error::AccountFlagged(self.account_name.to_string()));
+        if self.force {
+            return Ok(registry.fetch_account_id_unchecked(name).await?);
         }
-        Ok(registry.fetch_account_id(name).await?)
+        registry.fetch_account_id(name).await.map_err(|e| match e {
+            stellar_registry_build::Error::AccountFlagged(_) => {
+                Error::AccountFlagged(self.account_name.to_string())
+            }
+            other => other.into(),
+        })
     }
 }

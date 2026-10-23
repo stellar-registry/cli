@@ -482,6 +482,20 @@ mod tests {
             .arg("unverified/bob")
             .assert()
             .failure();
+        // The library refuses too, so callers other than the CLI get the check.
+        let config = registry
+            .parse_cmd::<crate::commands::fetch_account_owner::Cmd>(&["unverified/bob"])
+            .unwrap()
+            .config;
+        let unverified = Registry::new(&config, Some("unverified")).await.unwrap();
+        assert!(matches!(
+            unverified.fetch_account_id("bob").await,
+            Err(stellar_registry_build::Error::AccountFlagged(_))
+        ));
+        assert_eq!(
+            unverified.fetch_account_id_unchecked("bob").await.unwrap(),
+            bob
+        );
         let forced = registry
             .registry_cli("fetch-account-id")
             .args(["unverified/bob", "--force"])

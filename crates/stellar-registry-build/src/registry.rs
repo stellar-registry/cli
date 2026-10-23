@@ -130,7 +130,19 @@ impl Registry {
         Ok((manager != "null").then(|| manager.trim_matches('"').to_string()))
     }
 
+    /// Fetch the address `name` points at, refusing to return it if the
+    /// account is flagged as compromised. Callers that really want a flagged
+    /// address must say so with [`Self::fetch_account_id_unchecked`].
     pub async fn fetch_account_id(&self, name: &str) -> Result<String, Error> {
+        if self.is_account_flagged(name).await? {
+            return Err(Error::AccountFlagged(name.to_string()));
+        }
+        self.fetch_account_id_unchecked(name).await
+    }
+
+    /// Fetch the address `name` points at without the compromised-flag check.
+    /// Dangerous: prefer [`Self::fetch_account_id`].
+    pub async fn fetch_account_id_unchecked(&self, name: &str) -> Result<String, Error> {
         let slop = ["fetch_account_id", "--account-name", name];
         Ok(self
             .0
