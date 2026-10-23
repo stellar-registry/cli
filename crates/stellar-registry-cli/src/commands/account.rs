@@ -413,8 +413,9 @@ mod tests {
 
         // alice owns it; bob can't sign as owner.
         let refused = registry
-            .registry_cli_path(&["account", "flag"])
-            .args(["--account-name", "unverified/bob", "--source", "bob"])
+            .registry_cli_path(&["account", "update-owner"])
+            .args(["--account-name", "unverified/bob", "--new-owner", "bob"])
+            .args(["--source", "bob"])
             .assert()
             .failure()
             .stderr_as_str();
@@ -515,59 +516,53 @@ mod tests {
         assert_eq!(fetch(&registry, "fetch-id", "unverified/robert"), carol);
     }
 
+    // The CLI has no flag command (as for contracts), so flag through the
+    // contract directly. The root is managed by alice, the test source.
+    fn set_flag(registry: &RegistryTest, name: &str, flagged: bool) {
+        registry
+            .env
+            .stellar("contract")
+            .args(["invoke", "--id", &registry.registry_address, "--"])
+            .args(["flag_account", "--account-name", name])
+            .args(["--flagged", if flagged { "true" } else { "false" }])
+            .assert()
+            .success();
+    }
+
     #[tokio::test]
     async fn flagged_account_needs_force() {
         let registry = RegistryTest::new().await;
         let bob = registry.generate_funded_identity("bob").await;
-        registry
-            .registry_cli_path(&["account", "register"])
-            .args([
-                "--account-name",
-                "unverified/bob",
-                "--account-address",
-                "bob",
-            ])
+        account_cli(&registry, "register")
+            .args(["--account-name", "bob", "--account-address", "bob"])
             .assert()
             .success();
-        registry
-            .registry_cli_path(&["account", "flag"])
-            .args(["--account-name", "unverified/bob"])
-            .assert()
-            .success();
+        set_flag(&registry, "bob", true);
 
-        registry
-            .registry_cli_path(&["account", "fetch-id"])
-            .arg("unverified/bob")
+        account_cli(&registry, "fetch-id")
+            .arg("bob")
             .assert()
             .failure();
         // The library refuses too, so callers other than the CLI get the check.
         let config = registry
-            .parse_cmd::<crate::commands::fetch_account_owner::Cmd>(&["unverified/bob"])
+            .parse_cmd::<crate::commands::fetch_account_owner::Cmd>(&["bob"])
             .unwrap()
             .config;
-        let unverified = Registry::new(&config, Some("unverified")).await.unwrap();
+        let root = Registry::new(&config, None).await.unwrap();
         assert!(matches!(
-            unverified.fetch_account_id("bob").await,
+            root.fetch_account_id("bob").await,
             Err(stellar_registry_build::Error::AccountFlagged(_))
         ));
-        assert_eq!(
-            unverified.fetch_account_id_unchecked("bob").await.unwrap(),
-            bob
-        );
-        let forced = registry
-            .registry_cli_path(&["account", "fetch-id"])
-            .args(["unverified/bob", "--force"])
+        assert_eq!(root.fetch_account_id_unchecked("bob").await.unwrap(), bob);
+        let forced = account_cli(&registry, "fetch-id")
+            .args(["bob", "--force"])
             .assert()
             .success()
             .stdout_as_str();
         assert_eq!(forced, bob);
 
-        registry
-            .registry_cli_path(&["account", "flag"])
-            .args(["--account-name", "unverified/bob", "--unflag"])
-            .assert()
-            .success();
-        assert_eq!(fetch(&registry, "fetch-id", "unverified/bob"), bob);
+        set_flag(&registry, "bob", false);
+        assert_eq!(fetch(&registry, "fetch-id", "bob"), bob);
     }
 
     // The CLI can't sign for a smart account, so it says so before

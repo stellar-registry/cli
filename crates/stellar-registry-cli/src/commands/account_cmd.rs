@@ -1,8 +1,8 @@
 use clap::Parser;
 
 use crate::commands::{
-    fetch_account_id, fetch_account_owner, flag_account, preauthorize_account, register_account,
-    rename_account, revoke_account_preauth, update_account_address, update_account_owner,
+    fetch_account_id, fetch_account_owner, preauthorize_account, register_account, rename_account,
+    revoke_account_preauth, update_account_address, update_account_owner,
 };
 
 /// `stellar registry account <command>`: named accounts (G-addresses and
@@ -25,8 +25,6 @@ pub enum Cmd {
     UpdateOwner(Box<update_account_owner::Cmd>),
     /// Rename a named account
     Rename(Box<rename_account::Cmd>),
-    /// Flag a named account as compromised, or clear the flag
-    Flag(Box<flag_account::Cmd>),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -47,8 +45,6 @@ pub enum Error {
     UpdateOwner(#[from] update_account_owner::Error),
     #[error(transparent)]
     Rename(#[from] rename_account::Error),
-    #[error(transparent)]
-    Flag(#[from] flag_account::Error),
 }
 
 impl Cmd {
@@ -62,7 +58,6 @@ impl Cmd {
             Cmd::UpdateAddress(cmd) => cmd.run().await?,
             Cmd::UpdateOwner(cmd) => cmd.run().await?,
             Cmd::Rename(cmd) => cmd.run().await?,
-            Cmd::Flag(cmd) => cmd.run().await?,
         }
         Ok(())
     }

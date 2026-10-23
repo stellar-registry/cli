@@ -13,7 +13,6 @@ pub mod fetch_account_id;
 pub mod fetch_account_owner;
 pub mod fetch_contract_id;
 pub mod fetch_hash;
-pub mod flag_account;
 pub mod global;
 pub mod preauthorize_account;
 pub mod publish;

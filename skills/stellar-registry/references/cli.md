@@ -45,7 +45,6 @@ Account names are a separate namespace from contract names, managed with `stella
 | `account rename` | Rename (the account consents to the new name) | `--account-name`, `--new-name`, `--dry-run` |
 | `account update-address` | Point a name at a different address (which consents) | `--account-name`, `--new-address`, `--dry-run` |
 | `account update-owner` | Transfer ownership of a name | `--account-name`, `--new-owner`, `--dry-run` |
-| `account flag` | Flag an account as compromised | `--account-name`, `--unflag`, `--dry-run` |
 
 ### Constructor arguments
 
