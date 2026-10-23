@@ -2,7 +2,7 @@ use clap::Parser;
 use stellar_cli::{commands::contract::invoke, config};
 use stellar_registry_build::{name::Prefixed, registry::Registry};
 
-use crate::commands::global;
+use crate::commands::{account, global};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -35,6 +35,8 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
+    #[error(transparent)]
+    Account(#[from] account::Error),
 }
 
 impl Cmd {
@@ -56,8 +58,17 @@ impl Cmd {
         ];
 
         let registry = Registry::new(&self.config, self.contract_name.channel()).await?;
+        let owner_address = account::resolve_address(&self.config, &owner);
+        let operator =
+            account::operator(&registry, &self.config, &owner_address, Some(&owner)).await?;
+        if !self.dry_run {
+            operator.require_signer(false)?;
+        }
 
         registry.as_contract().invoke(&args, self.dry_run).await?;
+        if self.dry_run {
+            operator.require_signer(true)?;
+        }
 
         eprintln!(
             "{}Successfully registered contract '{}' at {}",
@@ -73,7 +84,7 @@ impl Cmd {
 #[cfg(test)]
 mod tests {
     use stellar_cli::commands::contract::deploy::wasm;
-    use stellar_registry_test::RegistryTest;
+    use stellar_registry_test::{AssertExt, RegistryTest};
 
     #[tokio::test]
     async fn simple() {
@@ -163,5 +174,88 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(contract_id, fetched_id.to_string());
+    }
+
+    async fn deploy_hello(registry: &RegistryTest) -> String {
+        let v1 = registry.hello_wasm_v1();
+        let deploy_cmd = registry
+            .parse_cmd::<wasm::Cmd>(&[
+                "--wasm",
+                v1.to_str().unwrap(),
+                "--source",
+                "alice",
+                "--fee=10000000",
+                "--",
+                "--admin=alice",
+            ])
+            .unwrap();
+        deploy_cmd
+            .execute(&deploy_cmd.config, false, false)
+            .await
+            .unwrap()
+            .into_result()
+            .unwrap()
+            .to_string()
+            .as_str()
+            .to_string()
+    }
+
+    // The root is managed by alice; bob can't sign for it, so neither a dry
+    // run nor a real run may read as a success.
+    #[tokio::test]
+    async fn managed_register_without_the_manager_key_is_refused() {
+        let registry = RegistryTest::new().await;
+        registry.generate_funded_identity("bob").await;
+        let contract_id = deploy_hello(&registry).await;
+        for dry_run in [true, false] {
+            let mut cmd = registry.registry_cli("register-contract");
+            cmd.args([
+                "--contract-name",
+                "bobs-hello",
+                "--contract-address",
+                &contract_id,
+            ])
+            .args(["--source", "bob"]);
+            if dry_run {
+                cmd.arg("--dry-run");
+            }
+            let out = cmd.assert().failure().stderr_as_str();
+            assert!(
+                out.contains("needs the registry manager's signature (governance)"),
+                "{out}"
+            );
+            assert!(!out.contains("Successfully"), "{out}");
+            assert_eq!(out.contains("Simulation OK."), dry_run, "{out}");
+        }
+    }
+
+    #[tokio::test]
+    async fn unmanaged_update_without_the_owner_key_is_refused() {
+        let registry = RegistryTest::new().await;
+        let bob = registry.generate_funded_identity("bob").await;
+        let contract_id = deploy_hello(&registry).await;
+        registry
+            .registry_cli("register-contract")
+            .args([
+                "--contract-name",
+                "unverified/hello",
+                "--contract-address",
+                &contract_id,
+            ])
+            .assert()
+            .success();
+
+        // alice owns it; bob can't sign as owner, even for a dry run.
+        let out = registry
+            .registry_cli("update-contract-owner")
+            .args(["--contract-name", "unverified/hello", "--new-owner", &bob])
+            .args(["--source", "bob", "--dry-run"])
+            .assert()
+            .failure()
+            .stderr_as_str();
+        assert!(
+            out.contains("Simulation OK. Submitting needs the owner's signature"),
+            "{out}"
+        );
     }
 }

@@ -2,7 +2,7 @@ use clap::Parser;
 use stellar_cli::{commands::contract::invoke, config};
 use stellar_registry_build::{name::Prefixed, registry::Registry};
 
-use crate::commands::global;
+use crate::commands::{account, global};
 
 #[derive(Parser, Debug, Clone)]
 pub struct Cmd {
@@ -30,11 +30,20 @@ pub enum Error {
     Config(#[from] config::Error),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
+    #[error(transparent)]
+    Account(#[from] account::Error),
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
         let registry = Registry::new(&self.config, self.contract_name.channel()).await?;
+        let owner = registry
+            .fetch_contract_owner(self.contract_name.name())
+            .await?;
+        let operator = account::operator(&registry, &self.config, &owner, None).await?;
+        if !self.dry_run {
+            operator.require_signer(false)?;
+        }
 
         let args = [
             "rename_contract",
@@ -45,6 +54,9 @@ impl Cmd {
         ];
 
         registry.as_contract().invoke(&args, self.dry_run).await?;
+        if self.dry_run {
+            operator.require_signer(true)?;
+        }
 
         eprintln!(
             "{}Successfully renamed '{}' to '{}'",
