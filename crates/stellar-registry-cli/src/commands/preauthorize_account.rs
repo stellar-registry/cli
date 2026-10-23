@@ -64,7 +64,7 @@ impl Cmd {
         eprintln!(
             "{}{} preauthorized being named '{}' with owner {}. It's single-use and expires \
              after the network's max temporary-entry TTL (~180 days on mainnet) unless revoked \
-             with `revoke-account-preauth`.",
+             with `stellar registry account revoke-preauth`.",
             if self.dry_run { "Dry Run: " } else { "" },
             self.account_address,
             self.account_name,

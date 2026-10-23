@@ -11,7 +11,7 @@ use stellar_registry_build::registry::Registry;
 pub enum Error {
     #[error(
         "{account} has to approve being named `{name}`. {how}:\n  \
-         stellar registry preauthorize-account --account-name {name} --account-address {account} --owner {owner}"
+         stellar registry account preauthorize --account-name {name} --account-address {account} --owner {owner}"
     )]
     NeedsConsent {
         account: String,
@@ -285,9 +285,12 @@ mod tests {
     use stellar_registry_build::registry::Registry;
     use stellar_registry_test::{AssertExt, RegistryTest};
 
+    fn account_cli(registry: &RegistryTest, cmd: &str) -> assert_cmd::Command {
+        registry.registry_cli_path(&["account", cmd])
+    }
+
     fn fetch(registry: &RegistryTest, cmd: &str, name: &str) -> String {
-        registry
-            .registry_cli(cmd)
+        account_cli(registry, cmd)
             .arg(name)
             .assert()
             .success()
@@ -313,24 +316,24 @@ mod tests {
         let bob = registry.generate_funded_identity("bob").await;
 
         let refused = registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args(["--account-name", "unverified/stranger"])
             .args(["--account-address", &stranger()])
             .assert()
             .failure()
             .stderr_as_str();
-        assert!(refused.contains("preauthorize-account"), "{refused}");
+        assert!(refused.contains("account preauthorize"), "{refused}");
 
         // An alias with a local key signs the transaction.
         registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args(["--account-name", "unverified/bob"])
             .args(["--account-address", "bob"])
             .assert()
             .success();
-        assert_eq!(fetch(&registry, "fetch-account-id", "unverified/bob"), bob);
+        assert_eq!(fetch(&registry, "fetch-id", "unverified/bob"), bob);
         assert_eq!(
-            fetch(&registry, "fetch-account-owner", "unverified/bob"),
+            fetch(&registry, "fetch-owner", "unverified/bob"),
             alice(&registry)
         );
     }
@@ -344,14 +347,14 @@ mod tests {
         let alice = alice(&registry);
 
         registry
-            .registry_cli("preauthorize-account")
+            .registry_cli_path(&["account", "preauthorize"])
             .args(["--account-name", "bob", "--account-address", "bob"])
             .args(["--owner", &alice, "--source", "bob"])
             .assert()
             .success();
 
         let out = registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args(["--account-name", "bob", "--account-address", &bob])
             .assert()
             .success()
@@ -359,7 +362,7 @@ mod tests {
         // alice is the manager here, so the governance note isn't for her.
         assert!(!out.contains("managed by"), "{out}");
         assert!(out.contains("Using"), "{out}");
-        assert_eq!(fetch(&registry, "fetch-account-id", "bob"), bob);
+        assert_eq!(fetch(&registry, "fetch-id", "bob"), bob);
     }
 
     // Bob isn't the root's manager, so neither a dry run nor a real run may
@@ -369,7 +372,7 @@ mod tests {
         let registry = RegistryTest::new().await;
         registry.generate_funded_identity("bob").await;
         for dry_run in [true, false] {
-            let mut cmd = registry.registry_cli("register-account");
+            let mut cmd = account_cli(&registry, "register");
             cmd.args([
                 "--account-name",
                 "bob",
@@ -398,7 +401,7 @@ mod tests {
         let registry = RegistryTest::new().await;
         registry.generate_funded_identity("bob").await;
         registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args([
                 "--account-name",
                 "unverified/bob",
@@ -410,7 +413,7 @@ mod tests {
 
         // alice owns it; bob can't sign as owner.
         let refused = registry
-            .registry_cli("flag-account")
+            .registry_cli_path(&["account", "flag"])
             .args(["--account-name", "unverified/bob", "--source", "bob"])
             .assert()
             .failure()
@@ -424,7 +427,7 @@ mod tests {
         let bob = registry.generate_funded_identity("bob").await;
         let alice = alice(&registry);
         let preauth = |cmd: &str| {
-            let mut c = registry.registry_cli(cmd);
+            let mut c = account_cli(&registry, cmd);
             c.args([
                 "--account-name",
                 "bob",
@@ -436,7 +439,7 @@ mod tests {
             c
         };
 
-        preauth("preauthorize-account")
+        preauth("preauthorize")
             .args(["--owner", &alice])
             .assert()
             .success();
@@ -450,7 +453,7 @@ mod tests {
             Some(alice.clone())
         );
 
-        preauth("revoke-account-preauth").assert().success();
+        preauth("revoke-preauth").assert().success();
         assert_eq!(root.account_preauth_owner("bob", &bob).await.unwrap(), None);
     }
 
@@ -462,7 +465,7 @@ mod tests {
         let alice = alice(&registry);
 
         registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args([
                 "--account-name",
                 "unverified/bob",
@@ -474,15 +477,15 @@ mod tests {
 
         // rename_account doesn't take the address, so bob can't co-sign it.
         let refused = registry
-            .registry_cli("rename-account")
+            .registry_cli_path(&["account", "rename"])
             .args(["--account-name", "unverified/bob", "--new-name", "robert"])
             .assert()
             .failure()
             .stderr_as_str();
-        assert!(refused.contains("preauthorize-account"), "{refused}");
+        assert!(refused.contains("account preauthorize"), "{refused}");
 
         registry
-            .registry_cli("preauthorize-account")
+            .registry_cli_path(&["account", "preauthorize"])
             .args([
                 "--account-name",
                 "unverified/robert",
@@ -493,17 +496,14 @@ mod tests {
             .assert()
             .success();
         registry
-            .registry_cli("rename-account")
+            .registry_cli_path(&["account", "rename"])
             .args(["--account-name", "unverified/bob", "--new-name", "robert"])
             .assert()
             .success();
-        assert_eq!(
-            fetch(&registry, "fetch-account-id", "unverified/robert"),
-            bob
-        );
+        assert_eq!(fetch(&registry, "fetch-id", "unverified/robert"), bob);
 
         registry
-            .registry_cli("update-account-address")
+            .registry_cli_path(&["account", "update-address"])
             .args([
                 "--account-name",
                 "unverified/robert",
@@ -512,10 +512,7 @@ mod tests {
             ])
             .assert()
             .success();
-        assert_eq!(
-            fetch(&registry, "fetch-account-id", "unverified/robert"),
-            carol
-        );
+        assert_eq!(fetch(&registry, "fetch-id", "unverified/robert"), carol);
     }
 
     #[tokio::test]
@@ -523,7 +520,7 @@ mod tests {
         let registry = RegistryTest::new().await;
         let bob = registry.generate_funded_identity("bob").await;
         registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args([
                 "--account-name",
                 "unverified/bob",
@@ -533,13 +530,13 @@ mod tests {
             .assert()
             .success();
         registry
-            .registry_cli("flag-account")
+            .registry_cli_path(&["account", "flag"])
             .args(["--account-name", "unverified/bob"])
             .assert()
             .success();
 
         registry
-            .registry_cli("fetch-account-id")
+            .registry_cli_path(&["account", "fetch-id"])
             .arg("unverified/bob")
             .assert()
             .failure();
@@ -558,7 +555,7 @@ mod tests {
             bob
         );
         let forced = registry
-            .registry_cli("fetch-account-id")
+            .registry_cli_path(&["account", "fetch-id"])
             .args(["unverified/bob", "--force"])
             .assert()
             .success()
@@ -566,11 +563,11 @@ mod tests {
         assert_eq!(forced, bob);
 
         registry
-            .registry_cli("flag-account")
+            .registry_cli_path(&["account", "flag"])
             .args(["--account-name", "unverified/bob", "--unflag"])
             .assert()
             .success();
-        assert_eq!(fetch(&registry, "fetch-account-id", "unverified/bob"), bob);
+        assert_eq!(fetch(&registry, "fetch-id", "unverified/bob"), bob);
     }
 
     // The CLI can't sign for a smart account, so it says so before
@@ -599,7 +596,7 @@ mod tests {
             .to_string();
 
         let refused = registry
-            .registry_cli("register-account")
+            .registry_cli_path(&["account", "register"])
             .args(["--account-name", "unverified/smart"])
             .args(["--account-address", &contract_id])
             .assert()

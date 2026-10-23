@@ -33,19 +33,19 @@ Versions must strictly increase for a given name. Only the original author can p
 
 ## Accounts (named G-addresses and smart accounts)
 
-Account names are a separate namespace from contract names. The named address has to consent: it signs the naming transaction (pass its identity alias as the address), or it runs `preauthorize-account` first for that name and owner. On a managed registry, where governance executes the call, preauthorizing is the only way. A preauthorization is single-use and lasts up to the network's max temporary-entry TTL (~180 days on mainnet). The CLI can't sign for a smart account; it has to sign with its own wallet.
+Account names are a separate namespace from contract names, managed with `stellar registry account <command>`. The named address has to consent: it signs the naming transaction (pass its identity alias as the address), or it runs `account preauthorize` first for that name and owner. On a managed registry, where governance executes the call, preauthorizing is the only way. A preauthorization is single-use and lasts up to the network's max temporary-entry TTL (~180 days on mainnet). The CLI can't sign for a smart account yet; it has to sign with its own wallet.
 
 | Command | Purpose | Key arguments |
 |---|---|---|
-| `register-account` | Name an account | `--account-name`, `--account-address <G...\|C...\|alias>`, `--owner`, `--dry-run` |
-| `preauthorize-account` | Consent in advance to being named | `--account-name`, `--account-address`, `--owner`; signed by the account |
-| `revoke-account-preauth` | Withdraw that consent | `--account-name`, `--account-address`; signed by the account |
-| `fetch-account-id <NAME>` | Resolve a name to its address | `--force` (return it even if flagged compromised) |
-| `fetch-account-owner <NAME>` | Show who owns a name | |
-| `rename-account` | Rename (the account consents to the new name) | `--account-name`, `--new-name`, `--dry-run` |
-| `update-account-address` | Point a name at a different address (which consents) | `--account-name`, `--new-address`, `--dry-run` |
-| `update-account-owner` | Transfer ownership of a name | `--account-name`, `--new-owner`, `--dry-run` |
-| `flag-account` | Flag an account as compromised | `--account-name`, `--unflag`, `--dry-run` |
+| `account register` | Name an account | `--account-name`, `--account-address <G...\|C...\|alias>`, `--owner`, `--dry-run` |
+| `account preauthorize` | Consent in advance to being named | `--account-name`, `--account-address`, `--owner`; signed by the account |
+| `account revoke-preauth` | Withdraw that consent | `--account-name`, `--account-address`; signed by the account |
+| `account fetch-id <NAME>` | Resolve a name to its address | `--force` (return it even if flagged compromised) |
+| `account fetch-owner <NAME>` | Show who owns a name | |
+| `account rename` | Rename (the account consents to the new name) | `--account-name`, `--new-name`, `--dry-run` |
+| `account update-address` | Point a name at a different address (which consents) | `--account-name`, `--new-address`, `--dry-run` |
+| `account update-owner` | Transfer ownership of a name | `--account-name`, `--new-owner`, `--dry-run` |
+| `account flag` | Flag an account as compromised | `--account-name`, `--unflag`, `--dry-run` |
 
 ### Constructor arguments
 
