@@ -23,12 +23,8 @@ pub enum Error {
         "{0} has to sign this. Run it with --source set to its identity, or pass its identity's alias as the address{1}"
     )]
     NeedsSigner(String, &'static str),
-    #[error("{prefix}this needs {operator}'s signature, which the CLI doesn't have. {hint}")]
-    OperatorMustSign {
-        prefix: &'static str,
-        operator: String,
-        hint: &'static str,
-    },
+    #[error("{0}")]
+    OperatorMustSign(String),
     #[error(transparent)]
     Config(#[from] config::Error),
     #[error(transparent)]
@@ -117,20 +113,20 @@ impl Operator {
         if self.can_sign {
             return Ok(());
         }
-        Err(Error::OperatorMustSign {
-            prefix: if dry_run {
-                "The dry run simulated, but it can't be submitted from here: "
-            } else {
-                ""
-            },
-            operator: self.address.clone(),
-            hint: if self.managed {
-                "This registry is managed, so its manager has to make this call, e.g. by \
-                 executing a governance proposal."
-            } else {
-                "Run it with --source set to the owner's identity."
-            },
-        })
+        let address = &self.address;
+        let needs = if self.managed {
+            format!("Submitting needs the registry manager's signature (governance): {address}.")
+        } else {
+            format!(
+                "Submitting needs the owner's signature: {address}. Run it with --source set to \
+                 the owner's identity."
+            )
+        };
+        Err(Error::OperatorMustSign(if dry_run {
+            format!("Simulation OK. {needs}")
+        } else {
+            format!("{needs} The CLI has no key for it, so nothing was submitted.")
+        }))
     }
 }
 
@@ -324,11 +320,11 @@ mod tests {
             }
             let refused = cmd.assert().failure().stderr_as_str();
             assert!(
-                refused.contains("its manager has to make this call"),
+                refused.contains("needs the registry manager's signature (governance)"),
                 "{refused}"
             );
             assert!(!refused.contains("Successfully"), "{refused}");
-            assert_eq!(refused.contains("dry run simulated"), dry_run, "{refused}");
+            assert_eq!(refused.contains("Simulation OK."), dry_run, "{refused}");
         }
     }
 
@@ -354,7 +350,7 @@ mod tests {
             .assert()
             .failure()
             .stderr_as_str();
-        assert!(refused.contains("--source set to the owner"), "{refused}");
+        assert!(refused.contains("needs the owner's signature"), "{refused}");
     }
 
     #[tokio::test]
