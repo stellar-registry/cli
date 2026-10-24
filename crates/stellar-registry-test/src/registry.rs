@@ -94,7 +94,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 "Standalone Network ; February 2017",
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse arguments for upload");
@@ -169,9 +169,15 @@ impl RegistryTest {
     }
 
     pub fn registry_cli(&self, cmd: &str) -> Command {
+        self.registry_cli_path(&[cmd])
+    }
+
+    /// Like [`Self::registry_cli`] for a nested subcommand, e.g.
+    /// `&["account", "register"]`.
+    pub fn registry_cli_path(&self, path: &[&str]) -> Command {
         let mut registry = Command::cargo_bin("stellar-registry").unwrap();
         registry.current_dir(&self.env.cwd);
-        registry.arg(cmd);
+        registry.args(path);
         registry.arg("--config-dir");
         registry.arg(config_dir(&self.env.cwd).to_str().unwrap());
         registry
@@ -220,7 +226,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 network_passphrase,
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse subregistry upload");

@@ -973,7 +973,23 @@ dependencies = [
  "cpufeatures 0.2.17",
  "curve25519-dalek-derive",
  "digest 0.10.7",
- "fiat-crypto",
+ "fiat-crypto 0.2.9",
+ "rustc_version",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5eed333089e2e1c1ac8c6c0398e5e2497b4c9926ca6d0365ed1e099afa5bc23"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "curve25519-dalek-derive",
+ "digest 0.11.3",
+ "fiat-crypto 0.3.0",
  "rustc_version",
  "subtle",
  "zeroize",
@@ -1225,7 +1241,7 @@ dependencies = [
  "digest 0.10.7",
  "elliptic-curve",
  "rfc6979",
- "signature",
+ "signature 2.2.0",
  "spki",
 ]
 
@@ -1236,7 +1252,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
  "pkcs8",
- "signature",
+ "signature 2.2.0",
+]
+
+[[package]]
+name = "ed25519"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29fcf32e6c73d1079f83ab4d782de2d81620346a5f38c6237a86a22f8368980a"
+dependencies = [
+ "signature 3.0.0",
 ]
 
 [[package]]
@@ -1245,11 +1270,24 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
 dependencies = [
- "curve25519-dalek",
- "ed25519",
+ "curve25519-dalek 4.1.3",
+ "ed25519 2.2.3",
  "rand_core 0.6.4",
  "serde",
  "sha2 0.10.9",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "ed25519-dalek"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ebaa1a2bf1290ab3bfe5a7b771d050ebffab2711c19a81691c683a5144a25de"
+dependencies = [
+ "curve25519-dalek 5.0.0",
+ "ed25519 3.0.0",
+ "sha2 0.11.1",
  "subtle",
  "zeroize",
 ]
@@ -1405,6 +1443,12 @@ name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
+
+[[package]]
+name = "fiat-crypto"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64cd1e32ddd350061ae6edb1b082d7c54915b5c672c389143b9a63403a109f24"
 
 [[package]]
 name = "filetime"
@@ -2334,7 +2378,7 @@ dependencies = [
  "elliptic-curve",
  "once_cell",
  "sha2 0.10.9",
- "signature",
+ "signature 2.2.0",
 ]
 
 [[package]]
@@ -2610,7 +2654,7 @@ dependencies = [
  "coins-bip32",
  "coins-bip39",
  "digest 0.10.7",
- "ed25519-dalek",
+ "ed25519-dalek 2.2.0",
  "hex",
  "hkdf",
  "hmac",
@@ -3584,9 +3628,9 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35a5a225b0cc092f0c818c7e51faf9d63d07da8c3157d6250096ca4b8708cfe3"
 dependencies = [
- "ed25519-dalek",
+ "ed25519-dalek 2.2.0",
  "ows-signer",
- "stellar-strkey 0.0.18",
+ "stellar-strkey 1.0.0",
  "thiserror 2.0.18",
  "tiny-bip39",
 ]
@@ -3839,6 +3883,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "signature"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28d567dcbaf0049cb8ac2608a76cd95ff9e4412e1899d389ee400918ca7537f5"
+
+[[package]]
 name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3902,7 +3952,7 @@ dependencies = [
  "csv",
  "directories",
  "dotenvy",
- "ed25519-dalek",
+ "ed25519-dalek 3.0.0",
  "ethnum",
  "flate2",
  "fqdn",
@@ -4012,9 +4062,9 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-serialize",
- "curve25519-dalek",
+ "curve25519-dalek 5.0.0",
  "ecdsa",
- "ed25519-dalek",
+ "ed25519-dalek 2.2.0",
  "elliptic-curve",
  "generic-array",
  "getrandom 0.2.16",
@@ -4078,7 +4128,7 @@ dependencies = [
  "crate-git-revision 0.0.9",
  "ctor",
  "derive_arbitrary",
- "ed25519-dalek",
+ "ed25519-dalek 2.2.0",
  "rand 0.8.5",
  "rustc_version",
  "serde",
@@ -4267,14 +4317,14 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "stellar-registry-macro",
 ]
 
 [[package]]
 name = "stellar-registry-build"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "expect-test",
  "semver",
@@ -4289,14 +4339,14 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "assert_cmd",
  "assert_fs",
  "clap",
  "crate-git-revision 0.0.9",
  "dotenvy",
- "ed25519-dalek",
+ "ed25519-dalek 3.0.0",
  "heck 0.5.0",
  "hex",
  "predicates",
@@ -4317,11 +4367,12 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-macro"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.11.1",
+ "soroban-sdk",
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",
@@ -4775,9 +4826,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.2"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
  "bytes",
  "libc",
@@ -5997,7 +6048,7 @@ dependencies = [
  "chrono",
  "crypto-bigint",
  "derive-new",
- "ed25519-dalek",
+ "ed25519-dalek 2.2.0",
  "embassy-futures",
  "embassy-sync",
  "fnv",

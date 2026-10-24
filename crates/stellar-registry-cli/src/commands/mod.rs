@@ -3,6 +3,7 @@ use std::str::FromStr;
 use clap::{CommandFactory, FromArgMatches, Parser};
 
 pub mod account;
+pub mod account_cmd;
 pub mod create_alias;
 pub mod current_version;
 pub mod deploy;
@@ -12,7 +13,6 @@ pub mod fetch_account_id;
 pub mod fetch_account_owner;
 pub mod fetch_contract_id;
 pub mod fetch_hash;
-pub mod flag_account;
 pub mod global;
 pub mod preauthorize_account;
 pub mod publish;
@@ -59,26 +59,18 @@ impl Root {
     }
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
+            Cmd::Account(cmd) => cmd.run().await?,
             Cmd::CurrentVersion(cmd) => cmd.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::DeployUnnamed(cmd) => cmd.run().await?,
             Cmd::Download(cmd) => cmd.run().await?,
-            Cmd::FetchAccountId(cmd) => cmd.run().await?,
-            Cmd::FetchAccountOwner(cmd) => cmd.run().await?,
             Cmd::FetchContractId(cmd) => cmd.run().await?,
             Cmd::FetchHash(cmd) => cmd.run().await?,
-            Cmd::FlagAccount(cmd) => cmd.run().await?,
-            Cmd::PreauthorizeAccount(cmd) => cmd.run().await?,
             Cmd::Publish(p) => p.run().await?,
             Cmd::PublishHash(cmd) => cmd.run().await?,
             Cmd::CreateAlias(i) => i.run().await?,
-            Cmd::RegisterAccount(cmd) => cmd.run().await?,
             Cmd::RegisterContract(cmd) => cmd.run().await?,
-            Cmd::RenameAccount(cmd) => cmd.run().await?,
             Cmd::RenameContract(cmd) => cmd.run().await?,
-            Cmd::RevokeAccountPreauth(cmd) => cmd.run().await?,
-            Cmd::UpdateAccountAddress(cmd) => cmd.run().await?,
-            Cmd::UpdateAccountOwner(cmd) => cmd.run().await?,
             Cmd::UpdateContractAddress(cmd) => cmd.run().await?,
             Cmd::UpdateContractOwner(cmd) => cmd.run().await?,
             Cmd::Version(p) => p.run(),
@@ -98,6 +90,9 @@ impl FromStr for Root {
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
+    /// Name and manage accounts (G-addresses and smart accounts)
+    #[command(subcommand)]
+    Account(account_cmd::Cmd),
     /// Create a local `stellar contract alias` from a named registry contract
     CreateAlias(Box<create_alias::Cmd>),
     /// Get the current (latest) version of a published Wasm
@@ -108,36 +103,18 @@ pub enum Cmd {
     DeployUnnamed(Box<deploy_unnamed::Cmd>),
     /// Download a Wasm binary, optionally creating a local file
     Download(Box<download::Cmd>),
-    /// Look up the address of a named account
-    FetchAccountId(Box<fetch_account_id::Cmd>),
-    /// Look up the owner of a named account
-    FetchAccountOwner(Box<fetch_account_owner::Cmd>),
     /// Look up the contract ID of a deployed contract by name
     FetchContractId(Box<fetch_contract_id::Cmd>),
     /// Fetch the hash of a published Wasm binary
     FetchHash(Box<fetch_hash::Cmd>),
-    /// Flag a named account as compromised, or clear the flag
-    FlagAccount(Box<flag_account::Cmd>),
-    /// Consent in advance to an account being named, e.g. by a governance proposal
-    PreauthorizeAccount(Box<preauthorize_account::Cmd>),
     /// Publish Wasm to registry with package name and semantic version
     Publish(Box<publish::Cmd>),
     /// Publish a Wasm hash (already uploaded) to registry
     PublishHash(Box<publish_hash::Cmd>),
-    /// Register a name for an account (G-address or smart account)
-    RegisterAccount(Box<register_account::Cmd>),
     /// Register an existing contract with a name in the registry
     RegisterContract(Box<register_contract::Cmd>),
-    /// Rename a named account
-    RenameAccount(Box<rename_account::Cmd>),
     /// Rename a registered contract
     RenameContract(Box<rename_contract::Cmd>),
-    /// Withdraw an account's pending preauthorization
-    RevokeAccountPreauth(Box<revoke_account_preauth::Cmd>),
-    /// Point a named account at a new address
-    UpdateAccountAddress(Box<update_account_address::Cmd>),
-    /// Update the owner of a named account
-    UpdateAccountOwner(Box<update_account_owner::Cmd>),
     /// Update the contract address of a registered contract
     UpdateContractAddress(Box<update_contract_address::Cmd>),
     /// Update the owner of a registered contract
@@ -151,6 +128,8 @@ pub enum Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Account(#[from] account_cmd::Error),
+    #[error(transparent)]
     CreateAlias(#[from] create_alias::Error),
     #[error(transparent)]
     CurrentVersion(#[from] current_version::Error),
@@ -161,35 +140,17 @@ pub enum Error {
     #[error(transparent)]
     Download(#[from] download::Error),
     #[error(transparent)]
-    FetchAccountId(#[from] fetch_account_id::Error),
-    #[error(transparent)]
-    FetchAccountOwner(#[from] fetch_account_owner::Error),
-    #[error(transparent)]
     FetchContractId(#[from] fetch_contract_id::Error),
     #[error(transparent)]
     FetchHash(#[from] fetch_hash::Error),
-    #[error(transparent)]
-    FlagAccount(#[from] flag_account::Error),
-    #[error(transparent)]
-    PreauthorizeAccount(#[from] preauthorize_account::Error),
     #[error(transparent)]
     Publish(#[from] publish::Error),
     #[error(transparent)]
     PublishHash(#[from] publish_hash::Error),
     #[error(transparent)]
-    RegisterAccount(#[from] register_account::Error),
-    #[error(transparent)]
     RegisterContract(#[from] register_contract::Error),
     #[error(transparent)]
-    RenameAccount(#[from] rename_account::Error),
-    #[error(transparent)]
     RenameContract(#[from] rename_contract::Error),
-    #[error(transparent)]
-    RevokeAccountPreauth(#[from] revoke_account_preauth::Error),
-    #[error(transparent)]
-    UpdateAccountAddress(#[from] update_account_address::Error),
-    #[error(transparent)]
-    UpdateAccountOwner(#[from] update_account_owner::Error),
     #[error(transparent)]
     UpdateContractAddress(#[from] update_contract_address::Error),
     #[error(transparent)]

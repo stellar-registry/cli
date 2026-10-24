@@ -3,8 +3,8 @@
 //! `stellar_registry::import_contract!(env, xlm)`, plus the counterpart
 //! pattern for exercising it in an in-process unit test.
 //!
-//! `import_contract!(env, xlm)` resolves XLM's real, network-specific
-//! contract id at *build* time — but that address isn't instantiated in a
+//! `import_contract!(env, xlm)` derives XLM's real, network-specific
+//! contract id at runtime — but that contract isn't instantiated in a
 //! sandboxed test `Env`, so a unit test can't call through it directly. The
 //! `xlm` module below swaps in `Env::register_stellar_asset_contract_v2` (a
 //! real SAC test double) under `#[cfg(test)]`, keeping the call site in
@@ -15,7 +15,7 @@ use soroban_sdk::{Address, Env, contract, contractimpl};
 mod xlm {
     use soroban_sdk::{Env, token};
 
-    /// The real "xlm" asset, resolved offline at build time — no network
+    /// The real "xlm" asset, its address derived at runtime — no network
     /// call, no cache files (see `import_contract!`'s SAC/XLM support).
     pub fn token_client(env: &Env) -> token::TokenClient<'_> {
         stellar_registry::import_contract!(env, xlm)

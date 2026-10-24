@@ -98,7 +98,7 @@ mod tests {
                 v1.to_str().unwrap(),
                 "--source",
                 "alice",
-                "--fee=10000000",
+                "--inclusion-fee=10000000",
                 "--",
                 "--admin=alice",
             ])
@@ -143,7 +143,7 @@ mod tests {
                 v1.to_str().unwrap(),
                 "--source",
                 "alice",
-                "--fee=10000000",
+                "--inclusion-fee=10000000",
                 "--",
                 "--admin=alice",
             ])
