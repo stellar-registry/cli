@@ -2,18 +2,28 @@ use std::str::FromStr;
 
 use clap::{CommandFactory, FromArgMatches, Parser};
 
+pub mod account;
+pub mod account_cmd;
 pub mod create_alias;
 pub mod current_version;
 pub mod deploy;
 pub mod deploy_unnamed;
 pub mod download;
+pub mod fetch_account_id;
+pub mod fetch_account_owner;
 pub mod fetch_contract_id;
 pub mod fetch_hash;
 pub mod global;
+pub mod preauthorize_account;
 pub mod publish;
 pub mod publish_hash;
+pub mod register_account;
 pub mod register_contract;
+pub mod rename_account;
 pub mod rename_contract;
+pub mod revoke_account_preauth;
+pub mod update_account_address;
+pub mod update_account_owner;
 pub mod update_contract_address;
 pub mod update_contract_owner;
 pub mod upgrade;
@@ -49,6 +59,7 @@ impl Root {
     }
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
+            Cmd::Account(cmd) => cmd.run().await?,
             Cmd::CurrentVersion(cmd) => cmd.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::DeployUnnamed(cmd) => cmd.run().await?,
@@ -79,6 +90,9 @@ impl FromStr for Root {
 
 #[derive(Parser, Debug)]
 pub enum Cmd {
+    /// Name and manage accounts (G-addresses and smart accounts)
+    #[command(subcommand)]
+    Account(account_cmd::Cmd),
     /// Create a local `stellar contract alias` from a named registry contract
     CreateAlias(Box<create_alias::Cmd>),
     /// Get the current (latest) version of a published Wasm
@@ -113,6 +127,8 @@ pub enum Cmd {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Account(#[from] account_cmd::Error),
     #[error(transparent)]
     CreateAlias(#[from] create_alias::Error),
     #[error(transparent)]
