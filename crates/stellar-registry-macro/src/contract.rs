@@ -13,7 +13,7 @@ use syn::{
 use stellar_registry_name::Prefixed;
 
 use crate::asset;
-use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
+use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
@@ -240,8 +240,10 @@ fn expand(
     wasm_path: &str,
     address: &str,
 ) -> proc_macro2::TokenStream {
+    let track = track_network_env();
     quote! {
         {
+            #track
             #[allow(non_snake_case)]
             mod #mod_ident {
                 #![allow(clippy::ref_option, clippy::too_many_arguments)]
@@ -263,14 +265,29 @@ fn expand(
 /// same, so no codegen from a fetched wasm is needed, unlike [`expand`].
 /// (Named `TokenClient`, not the deprecated `token::Client` alias.)
 fn expand_token_client(env: &Expr, address: &str) -> proc_macro2::TokenStream {
+    let track = track_network_env();
     quote! {
         {
+            #track
             use ::soroban_sdk;
             let __env: &::soroban_sdk::Env = #env;
             ::soroban_sdk::token::TokenClient::new(
                 __env,
                 &::soroban_sdk::Address::from_str(__env, #address),
             )
+        }
+    }
+}
+
+/// Like [`expand_token_client`], but for asset syntax: the address is derived
+/// at runtime from the asset itself, so the Wasm doesn't depend on the build
+/// network.
+fn expand_asset_token_client(env: &Expr, asset_xdr: &[u8]) -> proc_macro2::TokenStream {
+    let address = asset::runtime_address(&quote!(__env), asset_xdr);
+    quote! {
+        {
+            let __env: &::soroban_sdk::Env = #env;
+            ::soroban_sdk::token::TokenClient::new(__env, &#address)
         }
     }
 }
@@ -292,14 +309,11 @@ pub(crate) fn import_contract(
         )));
     }
 
-    // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) resolves offline to a
-    // Stellar Asset Contract id — no registry lookup, no cache files, works
-    // the same under STELLAR_NO_REGISTRY=1 since there's nothing to fetch.
+    // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) needs no registry
+    // lookup or cache files: the SAC address is derived at runtime.
     if is_asset_syntax(&raw) {
-        let (contract_id, _code) =
-            asset::generate_asset_id(&raw, &stellar_build::Network::passphrase_from_env())
-                .map_err(err)?;
-        return Ok(expand_token_client(&env, &contract_id.to_string()));
+        let (asset_xdr, _code) = asset::asset_xdr(&raw).map_err(err)?;
+        return Ok(expand_asset_token_client(&env, &asset_xdr));
     }
 
     let contract: Prefixed = name.parse_as()?;
@@ -606,27 +620,26 @@ mod codegen {
         assert!(out.contains(A), "bakes the resolved id: {out}");
     }
 
-    // `import_contract` itself takes a real `proc_macro::TokenStream`, which
-    // panics outside an actual macro expansion — so these test the same
-    // asset-literal building blocks `import_contract` composes (see its
-    // `is_asset_syntax` branch) rather than calling the entry point directly,
-    // consistent with `expand`/`resolve_address` being tested the same way.
     #[test]
-    fn xlm_resolves_offline_to_the_local_native_asset_id() {
-        // The well-known local-network native asset id (see asset.rs's own
-        // `parse_native` test for the full per-network table).
-        let (id, code) = asset::generate_asset_id("xlm", &stellar_build::Network::Local).unwrap();
-        assert_eq!(code, "xlm");
-        assert_eq!(
-            id.to_string(),
-            "CDMLFMKMMD7MWZP3FKUBZPVHTUEDLSX4BYGYKH4GCESXYHS3IHQ4EIG4"
-        );
+    fn asset_syntax_derives_the_address_at_runtime() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let (asset_xdr, _) = asset::asset_xdr("xlm").unwrap();
+        let out = expand_asset_token_client(&env, &asset_xdr).to_string();
+        assert!(out.contains("with_stellar_asset"), "{out}");
+        assert!(!out.contains("Address :: from_str"), "{out}");
+        assert!(!out.contains("option_env"), "network-independent: {out}");
+    }
+
+    #[test]
+    fn registered_names_rebuild_when_the_network_changes() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let out = expand_token_client(&env, A).to_string();
+        assert!(out.contains("option_env ! (\"STELLAR_NETWORK\")"), "{out}");
     }
 
     #[test]
     fn invalid_asset_literal_reports_a_specific_error() {
-        let err =
-            asset::generate_asset_id("USDC:not-a-key", &stellar_build::Network::Local).unwrap_err();
+        let err = asset::asset_xdr("USDC:not-a-key").unwrap_err();
         assert!(err.contains("invalid issuer"), "{err}");
     }
 }

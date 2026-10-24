@@ -15,7 +15,7 @@ pub fn your_fn(env: &Env) {
 
 ## Stellar Asset Contracts (SACs) and XLM
 
-`import_contract!` also accepts an asset name — `xlm`/`native`, or `"CODE:ISSUER"` — instead of a registered contract name, resolving the Stellar Asset Contract id offline (no registry lookup, no network access) and binding the standard token client to it:
+`import_contract!` also accepts an asset name — `xlm`/`native`, or `"CODE:ISSUER"` — instead of a registered contract name, deriving the Stellar Asset Contract address at runtime for whichever network the contract runs on (no registry lookup, no network access at build time) and binding the standard token client to it:
 
 ```rs
 pub fn your_fn(env: &Env) {
@@ -68,7 +68,7 @@ pub fn __constructor(env: &Env, admin: Address) {
 
 # Import an asset with `import_asset!`
 
-Generate a module with the Stellar Asset Contract id and token clients for an asset, computed offline for the build-time network (`STELLAR_NETWORK` / `STELLAR_NETWORK_PASSPHRASE`, defaulting to local).
+Generate a module with the Stellar Asset Contract id and token clients for an asset. The address is derived at runtime for the executing network, so one Wasm works on local, testnet, and mainnet. An issued asset's issuer is still fixed by the macro input.
 
 ```ignore
 import_asset!("native"); // or "xlm"
