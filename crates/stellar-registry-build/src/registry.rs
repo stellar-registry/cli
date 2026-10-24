@@ -146,6 +146,16 @@ impl Registry {
             .to_string())
     }
 
+    pub async fn fetch_contract_owner(&self, name: &str) -> Result<String, Error> {
+        let slop = ["fetch_contract_owner", "--contract-name", name];
+        Ok(self
+            .0
+            .invoke_with_result(&slop, true)
+            .await?
+            .trim_matches('"')
+            .to_string())
+    }
+
     pub async fn fetch_account_owner(&self, name: &str) -> Result<String, Error> {
         let slop = ["fetch_account_owner", "--account-name", name];
         Ok(self
