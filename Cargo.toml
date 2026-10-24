@@ -24,7 +24,7 @@ soroban-spec-tools = "28.1.0"
 
 admin-sep = "0.28.1"
 stellar-xdr = "=30.0.0"
-stellar-strkey = "0.0.18"
+stellar-strkey = "1.0.0"
 
 proc-macro2 = "1.0"
 quote = "1.0"
