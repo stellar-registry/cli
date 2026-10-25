@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.2.0...stellar-registry-cli-v0.3.0) - 2026-10-25
+
+### Fixed
+
+- report oversized simulated fees instead of TxMalformed ([#100](https://github.com/stellar-registry/cli/pull/100))
+
 ## [0.2.0](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.3...stellar-registry-cli-v0.2.0) - 2026-10-24
 
 ### Added

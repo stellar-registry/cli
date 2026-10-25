@@ -1,6 +1,6 @@
 [package]
 name = "stellar-registry"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "Stellar cross-contract calls, simplified"
 license = "Apache-2.0"
