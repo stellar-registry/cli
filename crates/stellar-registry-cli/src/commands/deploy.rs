@@ -85,6 +85,11 @@ pub enum Error {
     InvalidReturnValue(String),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
+    #[error(
+        "simulated fee of ~{} XLM is too large for a transaction; the call is likely paying unexpected storage rent",
+        .0 / 10_000_000
+    )]
+    FeeTooLarge(i64),
 }
 
 impl Cmd {
@@ -185,6 +190,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let tx = util::build_invoke_contract_tx(invoke_contract_args, sequence + 1, 100, &key)?;
         let assembled = simulate_and_assemble_transaction(&client, &tx, None, None, None).await?;
+        util::check_fee(&assembled)?;
         let mut txn = assembled.transaction().clone();
         txn = config
             .sign_soroban_authorizations(&txn, &signers, &Print::new(true))

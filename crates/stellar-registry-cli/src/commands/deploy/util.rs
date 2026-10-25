@@ -4,6 +4,7 @@ use std::ffi::OsString;
 use ed25519_dalek::SigningKey;
 
 use stellar_cli::{
+    assembled::Assembled,
     commands::contract::arg_parsing,
     config,
     signer::Signer,
@@ -82,4 +83,12 @@ fn is_constructor_fn(spec_entries: &ScSpecEntry) -> bool {
         spec_entries,
         ScSpecEntry::FunctionV0(func) if func.name.to_string() == "__constructor"
     )
+}
+
+/// Without this, an oversized fee is submitted as 0 and rejected as `TxMalformed`.
+pub fn check_fee(assembled: &Assembled) -> Result<(), Error> {
+    match assembled.fee_bump_fee() {
+        Some(fee) => Err(Error::FeeTooLarge(fee)),
+        None => Ok(()),
+    }
 }
