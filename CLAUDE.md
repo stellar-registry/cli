@@ -39,7 +39,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 | Crate | Purpose |
 |-------|---------|
-| `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract` |
+| `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract`, and `account` (`account register`, `account preauthorize`, ...) |
 | `stellar-registry-build` | Library for interacting with the registry at build time |
 | `stellar-registry-macro` | Macro crate defining procedural macros `import_contract!`, `import_contract_client!`, and `import_asset`. Proc-macro crates are special and need to only export proc-macros. |
 | `stellar-registry` | Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro`. Its `testutils` feature adds `testutils::register_import!` for testing contracts that use `import_contract!`. Might export more behavior later. (published to crates.io; dev-dependency of `stellar-registry/contracts`) |

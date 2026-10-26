@@ -5,7 +5,7 @@ homepage = "https://github.com/stellar-registry/cli"
 authors = ["Aha Labs <hello@theaha.co>"]
 license = "Apache-2.0"
 readme = "README.md"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 autobins = false
 repository = "https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-cli"
@@ -43,7 +43,7 @@ thiserror = "2.0.17"
 tokio = { version = "1", features = ["full"] }
 shlex = "1.1.0"
 heck = "0.5.0"
-ed25519-dalek = "2.2.0"
+ed25519-dalek = "3.0.0"
 hex = "0.4"
 sha2 = { workspace = true }
 

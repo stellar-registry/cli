@@ -15,8 +15,8 @@ repository = "https://github.com/stellar-registry/cli"
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
-stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.1.1" }
-stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.1.0" }
+stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.1.2" }
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.2.0" }
 stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.1.0" }
 
 # Cross-repo deps from scaffold-stellar/cli
@@ -34,7 +34,7 @@ stellar-strkey = "0.0.18"
 
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 
 cargo_metadata = "0.18.1"
 thiserror = "2.0.17"
@@ -42,7 +42,7 @@ sha2 = "0.11.0"
 semver = "1.0.28"
 
 clap = "4.6.1"
-reqwest = { version = "0.12.9", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 
 [workspace.lints.clippy]
 result_large_err = "allow"
