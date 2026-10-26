@@ -26,6 +26,61 @@ pub fn your_fn(env: &Env) {
 
 A registered name that itself points at a SAC (e.g. `"circle/usdc"`) works the same way, going through the registry to resolve the address and falling back to the same token client instead of trying (and failing) to fetch a wasm that doesn't exist for a built-in asset contract.
 
+## Testing with `import_contract!`
+
+`import_contract!` bakes the contract's real on-chain address into your contract at build time. A unit test's sandboxed `Env` has nothing at that address, so calling through the import fails until you put a contract there. `register_import!` does that: it resolves the name exactly as `import_contract!` does and registers the imported contract at the same address, returning the `Address`.
+
+Enable the `testutils` feature for tests (alongside `soroban-sdk`'s own):
+
+```toml
+[dependencies]
+soroban-sdk = "27"
+stellar-registry = "0.1"
+
+[dev-dependencies]
+soroban-sdk = { version = "27", features = ["testutils"] }
+stellar-registry = { version = "0.1", features = ["testutils"] }
+```
+
+Then, given a contract that imports `our_dao`:
+
+```rs
+pub fn propose(env: &Env, title: String) -> u32 {
+    stellar_registry::import_contract!(env, our_dao).create_proposal(&title)
+}
+```
+
+...its tests register `our_dao` before calling it. Your contract code stays the same in tests and on-chain, with no `#[cfg(test)]` switch:
+
+```rs
+use stellar_registry::testutils::register_import;
+
+#[test]
+fn proposes() {
+    let env = Env::default();
+    // Runs the same Wasm `import_contract!` generated its client from.
+    register_import!(&env, our_dao);
+
+    let client = ContractClient::new(&env, &env.register(Contract, ()));
+    assert_eq!(client.propose(&String::from_str(&env, "Ship it")), 1);
+}
+```
+
+Two options, in either order:
+
+- `args = { .. }` passes constructor arguments by name: `register_import!(&env, our_dao, args = { admin, quorum: 7u32 })`. The names and types come from the imported contract's constructor, so a misspelled name or wrong type is a compile error, and leaving `args` out when the constructor needs some fails with the list to fill in, e.g. `args = { admin: <Address>, quorum: <u32> }`. `{ admin }` is shorthand for `{ admin: admin }`; values are borrowed, not moved. A positional tuple, `args = (&admin, 7u32)`, also works.
+- `contract = ..` registers a native contract in place of the Wasm, when you want to control what the dependency returns: `register_import!(&env, our_dao, contract = MockDao)`. `MockDao` is an ordinary `#[contract]` type with the functions your contract calls; pass its constructor arguments as a tuple.
+
+Running tests is an ordinary build, so there is nothing to build first. Both macros resolve the name at compile time on the network the build uses, and share the cached id and Wasm (`target/stellar/<network>/deployed/<name>.id` and `.wasm`). Run tests on a network where the name is registered:
+
+```bash
+STELLAR_NETWORK=testnet cargo test
+```
+
+For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by `just test-register-import`.
+
+Stellar Asset Contracts (`xlm`, `"CODE:ISSUER"`, or a registered name that resolves to a SAC) are not supported by `register_import!` yet and give a compile error. Until they are, register a test asset with `Env::register_stellar_asset_contract_v2`.
+
 # Import wasm with `import_contract_client!`
 
 Import a wasm (https://stellar.rgstry.xyz/wasms), which defines only behavior. You can optionally include a version, otherwise it fetches the latest. You need to instantiate with a contract ID.

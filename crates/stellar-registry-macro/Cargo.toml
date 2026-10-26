@@ -19,6 +19,7 @@ stellar-build = { workspace = true }
 stellar-registry-name = { workspace = true }
 stellar-strkey = { workspace = true }
 stellar-xdr = { workspace = true }
+soroban-spec = { workspace = true }
 
 [dev-dependencies]
 sha2 = { workspace = true }

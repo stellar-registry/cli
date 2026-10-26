@@ -4542,6 +4542,7 @@ dependencies = [
  "quote",
  "sha2 0.11.1",
  "soroban-sdk",
+ "soroban-spec",
  "stellar-build",
  "stellar-registry-name",
  "stellar-strkey 0.0.18",
