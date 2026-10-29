@@ -3578,7 +3578,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 1.0.8",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4474,9 +4474,9 @@ dependencies = [
 
 [[package]]
 name = "stellar-build"
-version = "0.0.6"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fd5e3be902a9658fb9f642d4eef7837ab1d51e52dde9be1d9b218326499d97"
+checksum = "915a3455d5ef6013227e3ba69e7fd966c0830c4620f84c06b1dc684cae3a9465"
 dependencies = [
  "cargo_metadata",
  "sha2 0.10.9",
