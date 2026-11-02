@@ -88,6 +88,18 @@ pub(crate) fn network_name() -> String {
     std::env::var("STELLAR_NETWORK").unwrap_or_else(|_| "local".to_owned())
 }
 
+/// An item that reads the network env vars via `option_env!`, so rustc records
+/// them in dep-info and cargo re-expands the macro when the network changes.
+/// Without it, switching networks reuses output resolved for the old one.
+pub(crate) fn track_network_env() -> proc_macro2::TokenStream {
+    quote::quote! {
+        const _: () = {
+            let _ = option_env!("STELLAR_NETWORK");
+            let _ = option_env!("STELLAR_NETWORK_PASSPHRASE");
+        };
+    }
+}
+
 /// The registry explorer for the network, if one exists.
 pub(crate) fn explorer_url(network: &str) -> Option<&'static str> {
     match network {

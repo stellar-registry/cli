@@ -3,7 +3,10 @@ resolver = "2"
 default-members = ["crates/*"]
 members = ["crates/*", "crates/stellar-registry-test/fixtures/contracts/*"]
 # Needs seeded `import_contract!` cache files to compile; see its Cargo.toml.
-exclude = ["crates/stellar-registry-test/fixtures/contracts/hello_caller"]
+exclude = [
+    "crates/stellar-registry-test/fixtures/contracts/hello_caller",
+    "crates/stellar-registry-test/fixtures/contracts/token_caller",
+]
 
 [workspace.package]
 repository = "https://github.com/stellar-registry/cli"
@@ -12,8 +15,8 @@ repository = "https://github.com/stellar-registry/cli"
 # Local crates
 stellar-registry = { path = "crates/stellar-registry" }
 stellar-registry-test = { path = "crates/stellar-registry-test" }
-stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.1.1" }
-stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.1.0" }
+stellar-registry-macro = { path = "crates/stellar-registry-macro", version = "0.1.2" }
+stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.2.0" }
 stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.1.0" }
 
 # Cross-repo deps from scaffold-stellar/cli
@@ -23,22 +26,23 @@ stellar-cli = { version = "28.1.0", package = "soroban-cli", default-features = 
 soroban-rpc = { package = "stellar-rpc-client", version = "28.0.0" }
 soroban-sdk = { version = "28.0.0" }
 soroban-spec-tools = "28.1.0"
+soroban-spec = "28.0.0"
 
 admin-sep = "0.28.1"
-stellar-xdr = "=28.0.0"
+stellar-xdr = "=30.0.0"
 stellar-strkey = "0.0.18"
 
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 
 cargo_metadata = "0.18.1"
 thiserror = "2.0.17"
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 semver = "1.0.28"
 
 clap = "4.6.1"
-reqwest = { version = "0.12.9", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 
 [workspace.lints.clippy]
 result_large_err = "allow"

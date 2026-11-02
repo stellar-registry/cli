@@ -173,6 +173,7 @@ impl Cmd {
         let sequence: i64 = account_details.seq_num.into();
         let tx = util::build_invoke_contract_tx(invoke_contract_args, sequence + 1, 100, &key)?;
         let assembled = simulate_and_assemble_transaction(&client, &tx, None, None, None).await?;
+        util::check_fee(&assembled)?;
         let mut txn = assembled.transaction().clone();
         txn = config
             .sign_soroban_authorizations(&txn, &signers, &Print::new(true))

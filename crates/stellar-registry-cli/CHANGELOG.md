@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.3...stellar-registry-cli-v0.2.0) - 2026-10-24
+
+### Added
+
+- commands for named accounts ([#84](https://github.com/stellar-registry/cli/pull/84))
+
+### Fixed
+
+- don't report success when the CLI can't sign for a contract's operator ([#90](https://github.com/stellar-registry/cli/pull/90))
+
+## [0.1.3](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.2...stellar-registry-cli-v0.1.3) - 2026-10-24
+
+### Other
+
+- *(deps)* bump ed25519-dalek from 2.2.0 to 3.0.0 ([#86](https://github.com/stellar-registry/cli/pull/86))
+- Use --inclusion-fee instead of deprecated --fee ([#96](https://github.com/stellar-registry/cli/pull/96))
+
 ## [0.1.2](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.1.1...stellar-registry-cli-v0.1.2) - 2026-09-29
 
 ### Other

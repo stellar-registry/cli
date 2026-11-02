@@ -94,7 +94,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 "Standalone Network ; February 2017",
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse arguments for upload");
@@ -169,13 +169,36 @@ impl RegistryTest {
     }
 
     pub fn registry_cli(&self, cmd: &str) -> Command {
+        self.registry_cli_path(&[cmd])
+    }
+
+    /// Like [`Self::registry_cli`] for a nested subcommand, e.g.
+    /// `&["account", "register"]`.
+    pub fn registry_cli_path(&self, path: &[&str]) -> Command {
         let mut registry = Command::cargo_bin("stellar-registry").unwrap();
         registry.current_dir(&self.env.cwd);
-        registry.arg(cmd);
+        registry.args(path);
         registry.arg("--config-dir");
         registry.arg(config_dir(&self.env.cwd).to_str().unwrap());
         registry
     }
+    /// Generate and fund a local identity `name`; returns its G-address.
+    pub async fn generate_funded_identity(&self, name: &str) -> String {
+        Self::parse_cmd_internal::<keys::generate::Cmd>(&self.env, &[name, "--fund"])
+            .unwrap()
+            .run(&global::Args::default())
+            .await
+            .unwrap();
+        Self::parse_cmd_internal::<keys::public_key::Cmd>(&self.env, &[name])
+            .unwrap()
+            .public_key()
+            .await
+            .unwrap()
+            .to_string()
+            .as_str()
+            .to_string()
+    }
+
     pub fn hello_wasm_v1(&self) -> PathBuf {
         RandomizedWasm::new("hello_v1.wasm").randomize(&self.env.cwd)
     }
@@ -203,7 +226,7 @@ impl RegistryTest {
                 rpc_url,
                 "--network-passphrase",
                 network_passphrase,
-                "--fee=4000000000",
+                "--inclusion-fee=4000000000",
             ],
         )
         .expect("Failed to parse subregistry upload");

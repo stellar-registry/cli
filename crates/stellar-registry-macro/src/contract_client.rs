@@ -10,17 +10,19 @@ use syn::{
 
 use stellar_registry_name::Versioned;
 
-use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
+use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
 
 pub(crate) fn import_contract_client(
     input: proc_macro::TokenStream,
 ) -> Result<proc_macro2::TokenStream> {
     let WasmBinary { mod_name, file } = syn::parse::<WasmBinary>(input)?;
+    let track = track_network_env();
 
     Ok(quote! {
         pub(crate) mod #mod_name {
             #![allow(clippy::ref_option, clippy::too_many_arguments)]
             use super::soroban_sdk;
+            #track
             soroban_sdk::contractimport!(file = #file);
         }
     })

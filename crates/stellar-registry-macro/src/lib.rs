@@ -1,8 +1,9 @@
 //! Proc macros for the Stellar Registry: import deployed contracts
 //! (`import_contract!`), published wasms (`import_contract_client!`), and
-//! Stellar assets (`import_asset!`) as type-safe soroban clients, resolved at
-//! build time — plus `register_import!` for testing contracts that use
-//! `import_contract!`.
+//! Stellar assets (`import_asset!`) as type-safe soroban clients, plus
+//! `register_import!` for testing contracts that use `import_contract!`.
+//! Registry names resolve at build time; asset addresses are derived at
+//! runtime.
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
@@ -44,15 +45,16 @@ use util::ProcMacroWrapper as _;
 /// wasm are then required (build online once, or create them yourself with
 /// `stellar registry fetch-contract-id` and `stellar contract fetch`). Because
 /// a real on-chain address is baked in, if the named contract is redeployed,
-/// delete the cached files (or `cargo clean`) and rebuild.
+/// delete the cached files (or `cargo clean`) and rebuild. Changing
+/// `STELLAR_NETWORK` or `STELLAR_NETWORK_PASSPHRASE` triggers a rebuild.
 ///
 /// # Stellar Asset Contracts (SACs)
 ///
 /// A name is also accepted as an **asset** rather than a registered contract:
-/// `xlm`/`native`, or a `"CODE:ISSUER"` string. This resolves the SAC id
-/// offline (same computation as [`import_asset!`]) and binds the SDK's
-/// standard `token::TokenClient` to it — no registry lookup, no cache files,
-/// works under `STELLAR_NO_REGISTRY=1` with no setup:
+/// `xlm`/`native`, or a `"CODE:ISSUER"` string. This derives the SAC address
+/// at runtime for the executing network (as [`import_asset!`] does) and binds
+/// the SDK's standard `token::TokenClient` to it — no registry lookup, no cache
+/// files, and the same Wasm works on every network:
 ///
 /// ```ignore
 /// let xlm = stellar_registry::import_contract!(env, xlm);
@@ -67,7 +69,7 @@ use util::ProcMacroWrapper as _;
 ///
 /// # Testing
 ///
-/// Nothing lives at the baked address in a test `Env`; use
+/// Nothing lives at the imported address in a test `Env`; use
 /// [`register_import!`] to register the imported contract, a test asset for
 /// a SAC, or a mock there.
 #[proc_macro]
@@ -89,8 +91,8 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// let env = Env::default();
 /// // The imported contract's own Wasm, as cached by `import_contract!`:
 /// register_import!(&env, our_dao);
-/// // ...with constructor arguments:
-/// register_import!(&env, our_dao, args = (&admin, 7u32));
+/// // ...with constructor arguments, by name:
+/// register_import!(&env, our_dao, args = { admin, quorum: 7u32 });
 /// // ...or a native mock in place of the Wasm:
 /// register_import!(&env, our_dao, contract = MockDao);
 /// ```
@@ -99,11 +101,16 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///   and resolved by the same code, so both macros always agree on the
 ///   address and Wasm (same cache files, same `STELLAR_NO_REGISTRY`
 ///   handling, same flagged-contract check).
-/// - `args = (..)` is the constructor-argument tuple, as for `Env::register`
-///   (`()` when omitted).
+/// - `args = { name: value, .. }` passes constructor arguments by parameter
+///   name, read from the imported Wasm's constructor; `{ admin }` is
+///   shorthand for `{ admin: admin }`. Values are borrowed, not moved, and
+///   type-checked against the constructor. Leaving out `args` when the
+///   constructor takes parameters is a compile error that lists them. A
+///   positional tuple, `args = (..)`, also works.
 /// - `contract = <expr>` registers a native `#[contract]` type instead of the
-///   Wasm, for when you want to control what the dependency returns. `args`
-///   then go to the mock's constructor.
+///   Wasm, for when you want to control what the dependency returns. Its
+///   constructor arguments are a tuple, `args = (..)`, since a mock has no
+///   spec to name them by.
 ///
 /// Exported as `stellar_registry::testutils::register_import!`, behind
 /// `stellar-registry`'s `testutils` feature. The expansion calls
@@ -115,7 +122,8 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// For `xlm`/`native`, `"CODE:ISSUER"`, or a registered name that resolves to
 /// a SAC, there is no Wasm to register. `register_import!` instead puts a
 /// test asset (as made by `Env::register_stellar_asset_contract_v2`) at the
-/// baked address, with a generated admin so tests can mint:
+/// address `import_contract!` uses (for asset names, the one derived for the
+/// test `Env`'s network), with a generated admin so tests can mint:
 ///
 /// ```ignore
 /// env.mock_all_auths();
@@ -161,8 +169,9 @@ pub fn import_contract_client(input: TokenStream) -> TokenStream {
 }
 
 /// Generate a module with the Stellar Asset Contract id and token clients for
-/// an asset, computed offline for the build-time network (`STELLAR_NETWORK` /
-/// `STELLAR_NETWORK_PASSPHRASE`, defaulting to local).
+/// an asset. The address is derived at runtime for the executing network, so
+/// the build-time network doesn't matter. An issued asset's issuer is still
+/// fixed by the macro input.
 ///
 /// ```ignore
 /// import_asset!("native"); // or "xlm"

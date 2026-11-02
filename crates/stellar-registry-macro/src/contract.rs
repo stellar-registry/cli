@@ -12,8 +12,10 @@ use syn::{
 
 use stellar_registry_name::Prefixed;
 
+use stellar_xdr::{Limited, Limits, ReadXdr, ScSpecEntry, ScSpecTypeDef};
+
 use crate::asset;
-use crate::util::{Name, explorer_url, manifest, mod_ident, network_name};
+use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
@@ -31,13 +33,49 @@ impl Parse for Input {
     }
 }
 
+/// `args = { name: value, .. }`, or a positional tuple `args = (..)`.
+enum Args {
+    Named {
+        brace: syn::token::Brace,
+        fields: Vec<(Ident, Expr)>,
+    },
+    Positional(Expr),
+}
+
+impl Parse for Args {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if !input.peek(syn::token::Brace) {
+            return Ok(Self::Positional(input.parse()?));
+        }
+        let content;
+        let brace = syn::braced!(content in input);
+        let mut fields = Vec::new();
+        while !content.is_empty() {
+            let name: Ident = content.parse()?;
+            // `{ admin }` is shorthand for `{ admin: admin }`, as in a struct literal.
+            let value = if content.peek(Token![:]) {
+                content.parse::<Token![:]>()?;
+                content.parse()?
+            } else {
+                syn::parse_quote!(#name)
+            };
+            fields.push((name, value));
+            if content.is_empty() {
+                break;
+            }
+            content.parse::<Token![,]>()?;
+        }
+        Ok(Self::Named { brace, fields })
+    }
+}
+
 /// `register_import!(env_expr, name [, args = (..)] [, contract = Mock])` —
 /// `name` as in [`Input`]; the options may come in either order.
 struct RegisterInput {
     env: Expr,
     name: Name,
-    /// Constructor arguments; `()` when omitted.
-    args: Option<Expr>,
+    /// Constructor arguments, checked against the imported Wasm's constructor.
+    args: Option<Args>,
     /// A native contract to register instead of the imported Wasm.
     contract: Option<Expr>,
 }
@@ -52,9 +90,9 @@ impl Parse for RegisterInput {
                 break;
             }
             let key: Ident = input.parse()?;
-            let slot = match key.to_string().as_str() {
-                "args" => &mut args,
-                "contract" => &mut contract,
+            let given = match key.to_string().as_str() {
+                "args" => args.is_some(),
+                "contract" => contract.is_some(),
                 other => {
                     return Err(syn::Error::new(
                         key.span(),
@@ -64,14 +102,18 @@ impl Parse for RegisterInput {
                     ));
                 }
             };
-            if slot.is_some() {
+            if given {
                 return Err(syn::Error::new(
                     key.span(),
                     format!("`{key}` given more than once"),
                 ));
             }
             input.parse::<Token![=]>()?;
-            *slot = Some(input.parse()?);
+            if key == "args" {
+                args = Some(input.parse()?);
+            } else {
+                contract = Some(input.parse()?);
+            }
         }
         Ok(Self {
             env,
@@ -291,8 +333,10 @@ fn expand(
     wasm_path: &str,
     address: &str,
 ) -> proc_macro2::TokenStream {
+    let track = track_network_env();
     quote! {
         {
+            #track
             #[allow(non_snake_case)]
             mod #mod_ident {
                 #![allow(clippy::ref_option, clippy::too_many_arguments)]
@@ -314,14 +358,29 @@ fn expand(
 /// same, so no codegen from a fetched wasm is needed, unlike [`expand`].
 /// (Named `TokenClient`, not the deprecated `token::Client` alias.)
 fn expand_token_client(env: &Expr, address: &str) -> proc_macro2::TokenStream {
+    let track = track_network_env();
     quote! {
         {
+            #track
             use ::soroban_sdk;
             let __env: &::soroban_sdk::Env = #env;
             ::soroban_sdk::token::TokenClient::new(
                 __env,
                 &::soroban_sdk::Address::from_str(__env, #address),
             )
+        }
+    }
+}
+
+/// Like [`expand_token_client`], but for asset syntax: the address is derived
+/// at runtime from the asset itself, so the Wasm doesn't depend on the build
+/// network.
+fn expand_asset_token_client(env: &Expr, asset_xdr: &[u8]) -> proc_macro2::TokenStream {
+    let address = asset::runtime_address(&quote!(__env), asset_xdr);
+    quote! {
+        {
+            let __env: &::soroban_sdk::Env = #env;
+            ::soroban_sdk::token::TokenClient::new(__env, &#address)
         }
     }
 }
@@ -335,9 +394,11 @@ enum Resolved {
         wasm_path: PathBuf,
         address: String,
     },
-    /// A Stellar Asset Contract: asset syntax, or a registered name that
-    /// points at one. There is no Wasm.
+    /// A registered name that points at a Stellar Asset Contract. There is
+    /// no Wasm.
     Sac { address: String },
+    /// Asset syntax: the SAC address is derived at runtime from this XDR.
+    Asset { xdr: Vec<u8> },
 }
 
 /// Resolve `name` for `macro_name!` — shared by `import_contract!` and
@@ -357,16 +418,11 @@ fn resolve(name: &Name, macro_name: &str) -> syn::Result<Resolved> {
         )));
     }
 
-    // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) resolves offline to a
-    // Stellar Asset Contract id — no registry lookup, no cache files, works
-    // the same under STELLAR_NO_REGISTRY=1 since there's nothing to fetch.
+    // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) needs no registry
+    // lookup or cache files: the SAC address is derived at runtime.
     if is_asset_syntax(&raw) {
-        let (contract_id, _code) =
-            asset::generate_asset_id(&raw, &stellar_build::Network::passphrase_from_env())
-                .map_err(err)?;
-        return Ok(Resolved::Sac {
-            address: format!("{contract_id}"),
-        });
+        let (xdr, _code) = asset::asset_xdr(&raw).map_err(err)?;
+        return Ok(Resolved::Asset { xdr });
     }
 
     let contract: Prefixed = name.parse_as()?;
@@ -448,20 +504,67 @@ pub(crate) fn import_contract(
             address,
         } => expand(&env, &mod_ident, &wasm_path.to_string_lossy(), &address),
         Resolved::Sac { address } => expand_token_client(&env, &address),
+        Resolved::Asset { xdr } => expand_asset_token_client(&env, &xdr),
     })
 }
 
-/// Emit a block expression putting a Stellar Asset Contract test double at
-/// `address`. A test `Env` only creates a SAC at the address derived from its
-/// asset, so this registers a throwaway one and copies its contract instance
-/// (executable, admin, asset info) to `address`. Evaluates to the `Address`.
-fn expand_register_sac(env: &Expr, address: &str) -> proc_macro2::TokenStream {
-    quote! {
+/// A native mock's constructor args: a tuple, since a mock has no spec to
+/// name its parameters by.
+fn mock_args(input: &RegisterInput) -> syn::Result<proc_macro2::TokenStream> {
+    match &input.args {
+        None => Ok(quote!(())),
+        Some(Args::Positional(args)) => Ok(quote!(#args)),
+        Some(Args::Named { brace, .. }) => Err(syn::Error::new(
+            brace.span.join(),
+            "named `args` need the imported Wasm's constructor; with `contract = ..`, \
+             pass the mock's constructor arguments as a tuple, `args = (..)`",
+        )),
+    }
+}
+
+/// Emit a block expression for a Stellar Asset Contract name, at `address`
+/// (tokens in terms of `__env`): the mock when `contract` is given, otherwise
+/// a test asset. A test `Env` only creates a SAC at the address derived from
+/// its asset, so this registers a throwaway one and copies its contract
+/// instance (executable, admin, asset info) to `address`. Evaluates to the
+/// `Address`.
+fn expand_register_sac(
+    input: &RegisterInput,
+    address: &proc_macro2::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let env = &input.env;
+    let track = track_network_env();
+    if let Some(contract) = &input.contract {
+        let args = mock_args(input)?;
+        return Ok(quote! {
+            {
+                #track
+                let __env: &::soroban_sdk::Env = #env;
+                ::soroban_sdk::Env::register_at(__env, &#address, #contract, #args)
+            }
+        });
+    }
+    if let Some(args) = &input.args {
+        let span = match args {
+            Args::Named { brace, .. } => brace.span.join(),
+            Args::Positional(e) => syn::spanned::Spanned::span(e),
+        };
+        return Err(syn::Error::new(
+            span,
+            format!(
+                "`{}` is a Stellar Asset Contract, which has no constructor; remove `args`, \
+                 or pass `contract = ..` to register a mock that takes them.",
+                input.name.raw()
+            ),
+        ));
+    }
+    Ok(quote! {
         {
+            #track
             extern crate std as __std;
             use ::soroban_sdk::xdr as __xdr;
             let __env: &::soroban_sdk::Env = #env;
-            let __address = ::soroban_sdk::Address::from_str(__env, #address);
+            let __address = #address;
             let __admin =
                 <::soroban_sdk::Address as ::soroban_sdk::testutils::Address>::generate(__env);
             let __double = __env.register_stellar_asset_contract_v2(__admin).address();
@@ -491,50 +594,206 @@ fn expand_register_sac(env: &Expr, address: &str) -> proc_macro2::TokenStream {
                 .unwrap();
             __address
         }
+    })
+}
+
+/// The constructor's parameters (name and type), read from the contract spec
+/// embedded in the Wasm; `None` if the contract has no constructor.
+fn constructor_params(wasm: &[u8]) -> Result<Option<Vec<(String, ScSpecTypeDef)>>, String> {
+    let err =
+        |e: &dyn std::fmt::Display| format!("could not read the contract spec from the Wasm: {e}");
+    // Only the raw section comes from soroban-spec; it is parsed with this
+    // crate's stellar-xdr, which needn't match soroban-spec's.
+    let raw = soroban_spec::read::raw_from_wasm(wasm).map_err(|e| err(&e))?;
+    let mut reader = Limited::new(std::io::Cursor::new(raw), Limits::none());
+    let entries = ScSpecEntry::read_xdr_iter(&mut reader)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| err(&e))?;
+    Ok(entries.into_iter().find_map(|entry| match entry {
+        ScSpecEntry::FunctionV0(f) if f.name.to_utf8_string_lossy() == "__constructor" => Some(
+            f.inputs
+                .iter()
+                .map(|i| (i.name.to_utf8_string_lossy(), i.type_.clone()))
+                .collect(),
+        ),
+        _ => None,
+    }))
+}
+
+/// A spec type as the Rust type a test would pass, for error messages.
+fn type_name(t: &ScSpecTypeDef) -> String {
+    use ScSpecTypeDef as T;
+    match t {
+        T::Bool => "bool".into(),
+        T::U32 => "u32".into(),
+        T::I32 => "i32".into(),
+        T::U64 => "u64".into(),
+        T::I64 => "i64".into(),
+        T::U128 => "u128".into(),
+        T::I128 => "i128".into(),
+        T::Address => "Address".into(),
+        T::MuxedAddress => "MuxedAddress".into(),
+        T::String => "String".into(),
+        T::Symbol => "Symbol".into(),
+        T::Bytes => "Bytes".into(),
+        T::BytesN(b) => format!("BytesN<{}>", b.n),
+        T::Option(o) => format!("Option<{}>", type_name(&o.value_type)),
+        T::Vec(v) => format!("Vec<{}>", type_name(&v.element_type)),
+        T::Map(m) => format!(
+            "Map<{}, {}>",
+            type_name(&m.key_type),
+            type_name(&m.value_type)
+        ),
+        T::Udt(u) => u.name.to_utf8_string_lossy(),
+        other => other.name().to_string(),
     }
 }
 
+/// `args = { admin: <Address>, fee: <u32> }` — a starting point to paste.
+fn args_suggestion(params: &[(String, ScSpecTypeDef)]) -> String {
+    let fields: Vec<String> = params
+        .iter()
+        .map(|(name, t)| format!("{name}: <{}>", type_name(t)))
+        .collect();
+    format!("args = {{ {} }}", fields.join(", "))
+}
+
+/// Order named `args` by the constructor's parameters, reporting unknown,
+/// repeated and missing names.
+fn order_named_args<'a>(
+    fields: &'a [(Ident, Expr)],
+    params: &[(String, ScSpecTypeDef)],
+    brace_span: proc_macro2::Span,
+) -> syn::Result<Vec<&'a Expr>> {
+    let expected = || args_suggestion(params);
+    for (i, (name, _)) in fields.iter().enumerate() {
+        if !params.iter().any(|(p, _)| name == p) {
+            return Err(syn::Error::new(
+                name.span(),
+                format!(
+                    "the constructor has no parameter `{name}`; expected {}",
+                    expected()
+                ),
+            ));
+        }
+        if fields[..i].iter().any(|(earlier, _)| earlier == name) {
+            return Err(syn::Error::new(
+                name.span(),
+                format!("`{name}` given more than once"),
+            ));
+        }
+    }
+    params
+        .iter()
+        .map(|(p, _)| {
+            fields
+                .iter()
+                .find(|(name, _)| name == p)
+                .map(|(_, value)| value)
+                .ok_or_else(|| {
+                    syn::Error::new(
+                        brace_span,
+                        format!(
+                            "missing constructor argument `{p}`; expected {}",
+                            expected()
+                        ),
+                    )
+                })
+        })
+        .collect()
+}
+
+/// Constructor args for the imported Wasm, as a typed call to the
+/// `Args::__constructor` that `contractimport!` generates, so rustc checks
+/// each value against the constructor's parameter types.
+fn wasm_args(
+    input: &RegisterInput,
+    mod_ident: &Ident,
+    params: Option<&[(String, ScSpecTypeDef)]>,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let name = input.name.raw();
+    let values: Vec<&Expr> = match (&input.args, params) {
+        (None, None | Some([])) => return Ok(quote!(())),
+        (None, Some(params)) => {
+            return Err(syn::Error::new(
+                input.name.span(),
+                format!(
+                    "`{name}`'s constructor takes arguments. Pass them with `args`:\n\n    \
+                     register_import!(env, {name}, {})",
+                    args_suggestion(params)
+                ),
+            ));
+        }
+        (Some(args), None) => {
+            let span = match args {
+                Args::Named { brace, .. } => brace.span.join(),
+                Args::Positional(e) => syn::spanned::Spanned::span(e),
+            };
+            return Err(syn::Error::new(
+                span,
+                format!("`{name}` has no constructor, so it takes no `args`"),
+            ));
+        }
+        (Some(Args::Named { brace, fields }), Some(params)) => {
+            order_named_args(fields, params, brace.span.join())?
+        }
+        (Some(Args::Positional(Expr::Tuple(tuple))), Some(_)) => tuple.elems.iter().collect(),
+        (Some(Args::Positional(other)), Some(_)) => return Ok(quote!(#other)),
+    };
+    // Spanned per value, so a type mismatch points at the value, not the macro.
+    let values = values
+        .iter()
+        .map(|v| quote::quote_spanned!(syn::spanned::Spanned::span(v)=> &(#v)));
+    Ok(quote!(#mod_ident::Args::__constructor(#(#values),*)))
+}
+
 /// Emit a block expression registering a contract at the address
-/// `import_contract!` baked in: `contract` (a native mock) when given,
+/// `import_contract!` resolves to: `contract` (a native mock) when given,
 /// otherwise the imported Wasm, or a test asset for a SAC. Evaluates to the
 /// `Address`.
 fn expand_register(
     input: &RegisterInput,
     resolved: &Resolved,
+    params: Option<&[(String, ScSpecTypeDef)]>,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let env = &input.env;
-    let (address, wasm_path) = match resolved {
+    let track = track_network_env();
+    let (mod_ident, wasm_path, address) = match resolved {
         Resolved::Wasm {
-            wasm_path, address, ..
-        } => (address, Some(wasm_path)),
-        Resolved::Sac { address } => (address, None),
-    };
-    let contract = match (&input.contract, wasm_path) {
-        (Some(contract), _) => quote!(#contract),
-        (None, Some(wasm_path)) => {
-            let wasm_path = wasm_path.to_string_lossy();
-            quote!(::core::include_bytes!(#wasm_path).as_slice())
+            mod_ident,
+            wasm_path,
+            address,
+        } => (mod_ident, wasm_path, address),
+        Resolved::Sac { address } => {
+            let address = quote!(::soroban_sdk::Address::from_str(__env, #address));
+            return expand_register_sac(input, &address);
         }
-        (None, None) => {
-            if let Some(args) = &input.args {
-                return Err(syn::Error::new_spanned(
-                    args,
-                    format!(
-                        "`{}` is a Stellar Asset Contract, which has no constructor; remove \
-                         `args`, or pass `contract = ..` to register a mock that takes them.",
-                        input.name.raw()
-                    ),
-                ));
-            }
-            return Ok(expand_register_sac(env, address));
+        Resolved::Asset { xdr } => {
+            return expand_register_sac(input, &asset::runtime_address(&quote!(__env), xdr));
         }
     };
-    let args = input
-        .args
-        .as_ref()
-        .map_or_else(|| quote!(()), |args| quote!(#args));
+    let (module, contract, args) = if let Some(contract) = &input.contract {
+        (quote!(), quote!(#contract), mock_args(input)?)
+    } else {
+        let args = wasm_args(input, mod_ident, params)?;
+        let wasm_path = wasm_path.to_string_lossy();
+        (
+            quote! {
+                #[allow(non_snake_case)]
+                mod #mod_ident {
+                    #![allow(clippy::ref_option, clippy::too_many_arguments)]
+                    use ::soroban_sdk;
+                    soroban_sdk::contractimport!(file = #wasm_path);
+                }
+            },
+            quote!(#mod_ident::WASM),
+            args,
+        )
+    };
     Ok(quote! {
         {
+            #track
+            #module
             let __env: &::soroban_sdk::Env = #env;
             ::soroban_sdk::Env::register_at(
                 __env,
@@ -550,7 +809,18 @@ pub(crate) fn register_import(
     input: proc_macro::TokenStream,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let input: RegisterInput = syn::parse(input)?;
-    expand_register(&input, &resolve(&input.name, "register_import")?)
+    let resolved = resolve(&input.name, "register_import")?;
+    // Only the imported Wasm's constructor is read; a mock has no spec.
+    let params = match (&resolved, &input.contract) {
+        (Resolved::Wasm { wasm_path, .. }, None) => {
+            let err = |e: String| syn::Error::new(input.name.span(), e);
+            let wasm = std::fs::read(wasm_path)
+                .map_err(|e| err(format!("could not read {}: {e}", wasm_path.display())))?;
+            constructor_params(&wasm).map_err(err)?
+        }
+        _ => None,
+    };
+    expand_register(&input, &resolved, params.as_deref())
 }
 
 #[cfg(test)]
@@ -787,27 +1057,26 @@ mod codegen {
         assert!(out.contains(A), "bakes the resolved id: {out}");
     }
 
-    // `import_contract` itself takes a real `proc_macro::TokenStream`, which
-    // panics outside an actual macro expansion — so these test the same
-    // asset-literal building blocks `import_contract` composes (see its
-    // `is_asset_syntax` branch) rather than calling the entry point directly,
-    // consistent with `expand`/`resolve_address` being tested the same way.
     #[test]
-    fn xlm_resolves_offline_to_the_local_native_asset_id() {
-        // The well-known local-network native asset id (see asset.rs's own
-        // `parse_native` test for the full per-network table).
-        let (id, code) = asset::generate_asset_id("xlm", &stellar_build::Network::Local).unwrap();
-        assert_eq!(code, "xlm");
-        assert_eq!(
-            id.to_string(),
-            "CDMLFMKMMD7MWZP3FKUBZPVHTUEDLSX4BYGYKH4GCESXYHS3IHQ4EIG4"
-        );
+    fn asset_syntax_derives_the_address_at_runtime() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let (asset_xdr, _) = asset::asset_xdr("xlm").unwrap();
+        let out = expand_asset_token_client(&env, &asset_xdr).to_string();
+        assert!(out.contains("with_stellar_asset"), "{out}");
+        assert!(!out.contains("Address :: from_str"), "{out}");
+        assert!(!out.contains("option_env"), "network-independent: {out}");
+    }
+
+    #[test]
+    fn registered_names_rebuild_when_the_network_changes() {
+        let env: syn::Expr = parse2(quote!(env)).unwrap();
+        let out = expand_token_client(&env, A).to_string();
+        assert!(out.contains("option_env ! (\"STELLAR_NETWORK\")"), "{out}");
     }
 
     #[test]
     fn invalid_asset_literal_reports_a_specific_error() {
-        let err =
-            asset::generate_asset_id("USDC:not-a-key", &stellar_build::Network::Local).unwrap_err();
+        let err = asset::asset_xdr("USDC:not-a-key").unwrap_err();
         assert!(err.contains("invalid issuer"), "{err}");
     }
 }
@@ -829,9 +1098,29 @@ mod register {
         }
     }
 
-    fn expanded(tokens: proc_macro2::TokenStream, resolved: &Resolved) -> String {
+    /// `__constructor(admin: Address, fee: u32)`.
+    fn params() -> Vec<(String, ScSpecTypeDef)> {
+        vec![
+            ("admin".into(), ScSpecTypeDef::Address),
+            ("fee".into(), ScSpecTypeDef::U32),
+        ]
+    }
+
+    fn expand(
+        tokens: proc_macro2::TokenStream,
+        resolved: &Resolved,
+        params: Option<&[(String, ScSpecTypeDef)]>,
+    ) -> syn::Result<String> {
         let input: RegisterInput = parse2(tokens).unwrap();
-        expand_register(&input, resolved).unwrap().to_string()
+        expand_register(&input, resolved, params).map(|out| out.to_string())
+    }
+
+    fn expanded(tokens: proc_macro2::TokenStream, resolved: &Resolved) -> String {
+        expand(tokens, resolved, None).unwrap()
+    }
+
+    fn with_params(tokens: proc_macro2::TokenStream) -> syn::Result<String> {
+        expand(tokens, &wasm(), Some(&params()))
     }
 
     fn parse_err(tokens: proc_macro2::TokenStream) -> String {
@@ -872,26 +1161,106 @@ mod register {
     fn registers_the_cached_wasm_at_the_baked_address() {
         let out = expanded(quote!(&env, our_dao), &wasm());
         assert!(out.contains("Env :: register_at"), "{out}");
-        assert!(out.contains("include_bytes !"), "{out}");
+        assert!(out.contains("contractimport !"), "{out}");
         assert!(out.contains("our_dao.wasm"), "{out}");
-        assert!(out.contains(A), "bakes the resolved id: {out}");
         assert!(
-            out.contains(". as_slice () , () ,"),
-            "no constructor args by default: {out}"
+            out.contains("our_dao :: WASM , () ,"),
+            "no constructor: {out}"
+        );
+        assert!(out.contains(A), "bakes the resolved id: {out}");
+    }
+
+    #[test]
+    fn named_args_are_ordered_by_the_constructor_and_typed() {
+        // Given out of order, and `admin` in shorthand.
+        let out = with_params(quote!(&env, our_dao, args = { fee: 7u32, admin })).unwrap();
+        assert!(
+            out.contains("our_dao :: Args :: __constructor (& (admin) , & (7u32))"),
+            "{out}"
         );
     }
 
     #[test]
-    fn passes_constructor_args_through() {
-        let out = expanded(quote!(&env, our_dao, args = (&admin, 7u32)), &wasm());
-        assert!(out.contains("(& admin , 7u32)"), "{out}");
+    fn positional_tuple_args_are_typed_too() {
+        let out = with_params(quote!(&env, our_dao, args = (&admin, 7u32))).unwrap();
+        assert!(
+            out.contains("our_dao :: Args :: __constructor (& (& admin) , & (7u32))"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn missing_args_suggest_the_constructor_parameters() {
+        let msg = with_params(quote!(&env, our_dao)).unwrap_err().to_string();
+        assert!(msg.contains("constructor takes arguments"), "{msg}");
+        assert!(
+            msg.contains("register_import!(env, our_dao, args = { admin: <Address>, fee: <u32> })"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn named_args_report_unknown_repeated_and_missing_names() {
+        let msg = with_params(quote!(&env, our_dao, args = { owner: a, fee: 1u32 }))
+            .unwrap_err()
+            .to_string();
+        assert!(msg.contains("no parameter `owner`"), "{msg}");
+        let msg = with_params(quote!(&env, our_dao, args = { admin, admin, fee: 1u32 }))
+            .unwrap_err()
+            .to_string();
+        assert!(msg.contains("`admin` given more than once"), "{msg}");
+        let msg = with_params(quote!(&env, our_dao, args = { admin }))
+            .unwrap_err()
+            .to_string();
+        assert!(msg.contains("missing constructor argument `fee`"), "{msg}");
+    }
+
+    #[test]
+    fn args_without_a_constructor_are_rejected() {
+        let msg = expand(quote!(&env, our_dao, args = { admin }), &wasm(), None)
+            .unwrap_err()
+            .to_string();
+        assert!(msg.contains("has no constructor"), "{msg}");
+    }
+
+    #[test]
+    fn named_args_are_rejected_for_a_mock() {
+        let msg = expand(
+            quote!(&env, our_dao, contract = MockDao, args = { admin }),
+            &wasm(),
+            None,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(msg.contains("as a tuple"), "{msg}");
+        let out = expanded(
+            quote!(&env, our_dao, contract = MockDao, args = (&admin,)),
+            &wasm(),
+        );
+        assert!(out.contains("MockDao , (& admin ,)"), "{out}");
+    }
+
+    #[test]
+    fn spec_types_are_named_as_rust_types() {
+        use stellar_xdr::{ScSpecTypeBytesN, ScSpecTypeVec};
+        assert_eq!(type_name(&ScSpecTypeDef::I128), "i128");
+        assert_eq!(
+            type_name(&ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 32 })),
+            "BytesN<32>"
+        );
+        assert_eq!(
+            type_name(&ScSpecTypeDef::Vec(Box::new(ScSpecTypeVec {
+                element_type: Box::new(ScSpecTypeDef::Address),
+            }))),
+            "Vec<Address>"
+        );
     }
 
     #[test]
     fn contract_option_replaces_the_wasm() {
         let out = expanded(quote!(&env, our_dao, contract = mocks::MockDao), &wasm());
         assert!(out.contains("mocks :: MockDao"), "{out}");
-        assert!(!out.contains("include_bytes"), "{out}");
+        assert!(!out.contains("contractimport"), "{out}");
         assert!(out.contains(A), "still at the baked address: {out}");
     }
 
@@ -902,7 +1271,7 @@ mod register {
     }
 
     #[test]
-    fn stellar_asset_contract_gets_a_test_asset_at_the_baked_address() {
+    fn registered_sac_gets_a_test_asset_at_the_baked_address() {
         for tokens in [quote!(&env, xlm), quote!(&env, "circle/usdc")] {
             let out = expanded(tokens, &sac());
             assert!(
@@ -933,7 +1302,21 @@ mod register {
     #[test]
     fn stellar_asset_contract_rejects_constructor_args() {
         let input: RegisterInput = parse2(quote!(&env, xlm, args = (&admin,))).unwrap();
-        let msg = expand_register(&input, &sac()).unwrap_err().to_string();
+        let msg = expand_register(&input, &sac(), None)
+            .unwrap_err()
+            .to_string();
         assert!(msg.contains("has no constructor"), "{msg}");
+    }
+
+    #[test]
+    fn asset_syntax_gets_a_test_asset_at_the_runtime_address() {
+        let (xdr, _) = asset::asset_xdr("xlm").unwrap();
+        let out = expanded(quote!(&env, xlm), &Resolved::Asset { xdr });
+        assert!(out.contains("register_stellar_asset_contract_v2"), "{out}");
+        assert!(
+            out.contains("with_stellar_asset"),
+            "derives the address the import will use: {out}"
+        );
+        assert!(!out.contains("Address :: from_str"), "{out}");
     }
 }

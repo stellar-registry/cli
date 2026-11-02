@@ -15,7 +15,7 @@ pub fn your_fn(env: &Env) {
 
 ## Stellar Asset Contracts (SACs) and XLM
 
-`import_contract!` also accepts an asset name — `xlm`/`native`, or `"CODE:ISSUER"` — instead of a registered contract name, resolving the Stellar Asset Contract id offline (no registry lookup, no network access) and binding the standard token client to it:
+`import_contract!` also accepts an asset name — `xlm`/`native`, or `"CODE:ISSUER"` — instead of a registered contract name, deriving the Stellar Asset Contract address at runtime for whichever network the contract runs on (no registry lookup, no network access at build time) and binding the standard token client to it:
 
 ```rs
 pub fn your_fn(env: &Env) {
@@ -68,8 +68,8 @@ fn proposes() {
 
 Two options, in either order:
 
-- `args = (..)` passes constructor arguments, as a tuple like `Env::register` takes: `register_import!(&env, our_dao, args = (&admin, 7u32))`.
-- `contract = ..` registers a native contract in place of the Wasm, when you want to control what the dependency returns: `register_import!(&env, our_dao, contract = MockDao)`. `MockDao` is an ordinary `#[contract]` type with the functions your contract calls.
+- `args = { .. }` passes constructor arguments by name: `register_import!(&env, our_dao, args = { admin, quorum: 7u32 })`. The names and types come from the imported contract's constructor, so a misspelled name or wrong type is a compile error, and leaving `args` out when the constructor needs some fails with the list to fill in, e.g. `args = { admin: <Address>, quorum: <u32> }`. `{ admin }` is shorthand for `{ admin: admin }`; values are borrowed, not moved. A positional tuple, `args = (&admin, 7u32)`, also works.
+- `contract = ..` registers a native contract in place of the Wasm, when you want to control what the dependency returns: `register_import!(&env, our_dao, contract = MockDao)`. `MockDao` is an ordinary `#[contract]` type with the functions your contract calls; pass its constructor arguments as a tuple.
 
 Running tests is an ordinary build, so there is nothing to build first. Both macros resolve the name at compile time on the network the build uses, and share the cached id and Wasm (`target/stellar/<network>/deployed/<name>.id` and `.wasm`). Run tests on a network where the name is registered:
 
@@ -143,7 +143,7 @@ pub fn __constructor(env: &Env, admin: Address) {
 
 # Import an asset with `import_asset!`
 
-Generate a module with the Stellar Asset Contract id and token clients for an asset, computed offline for the build-time network (`STELLAR_NETWORK` / `STELLAR_NETWORK_PASSPHRASE`, defaulting to local).
+Generate a module with the Stellar Asset Contract id and token clients for an asset. The address is derived at runtime for the executing network, so one Wasm works on local, testnet, and mainnet. An issued asset's issuer is still fixed by the macro input.
 
 ```ignore
 import_asset!("native"); // or "xlm"
