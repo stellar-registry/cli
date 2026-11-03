@@ -39,7 +39,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 | Crate | Purpose |
 |-------|---------|
-| `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract`, `clone-contract` (copy a registered contract from another network), and `account` (`account register`, `account preauthorize`, ...) |
+| `stellar-registry-cli` | The `stellar registry` CLI: `publish`, `deploy`, `download`, `install`/`create-alias`, `upgrade`, `register-contract`, and `account` (`account register`, `account preauthorize`, ...) |
 | `stellar-registry-build` | Library for interacting with the registry at build time |
 | `stellar-registry-macro` | Macro crate defining procedural macros `import_contract!`, `import_contract_client!`, and `import_asset`. Proc-macro crates are special and need to only export proc-macros. |
 | `stellar-registry` | Re-exports the `import_contract!`, `import_contract_client!`, and `import_asset!` macros from `stellar-registry-macro`. Its `testutils` feature adds `testutils::register_import!` for testing contracts that use `import_contract!`. Might export more behavior later. (published to crates.io; dev-dependency of `stellar-registry/contracts`) |
@@ -50,7 +50,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 `publish` → `deploy` → `install` / `create-alias`
 - `publish` — uploads wasm to the registry with semantic versioning
-- `deploy` — instantiates a published wasm as a named contract
+- `deploy` — instantiates a published wasm as a named contract, or with `--from-network` copies a contract registered on another network
 - `install` / `create-alias` — creates a local stellar-cli alias from the registry
 
 ## Testing

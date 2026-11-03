@@ -19,6 +19,7 @@ use stellar_registry_build::{
 
 use crate::commands::global;
 
+pub mod from_network;
 pub mod util;
 
 #[derive(Parser, Debug, Clone)]
@@ -29,8 +30,21 @@ pub struct Cmd {
     pub contract_name: Prefixed,
     /// Name of published contract to deploy from. Can use prefix of not using verified registry.
     /// E.g. `unverified/<name>`
-    #[arg(long)]
-    pub wasm_name: Prefixed,
+    #[arg(long, required_unless_present = "from_network")]
+    pub wasm_name: Option<Prefixed>,
+    /// Copy a contract registered on another network (e.g. `testnet`) instead
+    /// of deploying a published Wasm: its Wasm is deployed here from your
+    /// account, not through the registry, then registered as `--contract-name`
+    #[arg(long, conflicts_with_all = ["wasm_name", "version", "deployer"])]
+    pub from_network: Option<String>,
+    /// Name of the contract on `--from-network`, if different from
+    /// `--contract-name`
+    #[arg(long, requires = "from_network")]
+    pub from_contract_name: Option<Prefixed>,
+    /// With `--from-network`, copy the contract even if it is flagged as
+    /// compromised there
+    #[arg(long, requires = "from_network")]
+    pub force: bool,
     /// Arguments for constructor
     #[arg(last = true, id = "CONSTRUCTOR_ARGS")]
     pub slop: Vec<OsString>,
@@ -85,6 +99,8 @@ pub enum Error {
     InvalidReturnValue(String),
     #[error(transparent)]
     Registry(#[from] stellar_registry_build::Error),
+    #[error(transparent)]
+    FromNetwork(#[from] from_network::Error),
     #[error(
         "simulated fee of ~{} XLM is too large for a transaction; the call is likely paying unexpected storage rent",
         .0 / 10_000_000
@@ -94,7 +110,13 @@ pub enum Error {
 
 impl Cmd {
     pub async fn run(&self) -> Result<(), Error> {
-        match self.invoke().await {
+        let result = match &self.from_network {
+            Some(from_network) => from_network::deploy(self, from_network)
+                .await
+                .map_err(Error::from),
+            None => self.invoke().await,
+        };
+        match result {
             Ok(contract_id) => {
                 println!(
                     "Contract {} deployed successfully to {contract_id}",
@@ -110,10 +132,20 @@ impl Cmd {
         }
     }
 
+    /// `--wasm-name`, which clap requires unless `--from-network` is given.
+    fn wasm_name(&self) -> &Prefixed {
+        self.wasm_name
+            .as_ref()
+            .expect("--wasm-name is required without --from-network")
+    }
+
     pub async fn hash(&self, registry: &Registry) -> Result<xdr::Hash, Error> {
         let res = registry
             .as_contract()
-            .invoke_with_result(&["fetch_hash", "--wasm_name", self.wasm_name.name()], true)
+            .invoke_with_result(
+                &["fetch_hash", "--wasm_name", self.wasm_name().name()],
+                true,
+            )
             .await?;
         let res = res.trim_matches('"');
         Ok(res.parse().unwrap())
@@ -134,7 +166,7 @@ impl Cmd {
 
     async fn invoke(&self) -> Result<stellar_strkey::Contract, Error> {
         let target_registry = self.contract_name.registry(&self.config).await?;
-        let wasm_registry = self.wasm_name.registry(&self.config).await?;
+        let wasm_registry = self.wasm_name().registry(&self.config).await?;
         let cross_registry = target_registry.as_contract().id() != wasm_registry.as_contract().id();
         let client = self.config.rpc_client()?;
         let key = self.config.key_pair()?;
@@ -151,7 +183,7 @@ impl Cmd {
             None
         };
         let mut call_args: Vec<ScVal> = vec![
-            ScVal::String(ScString(self.wasm_name.name().try_into().unwrap())),
+            ScVal::String(ScString(self.wasm_name().name().try_into().unwrap())),
             self.version.clone().map_or(ScVal::Void, |s| {
                 ScVal::String(ScString(s.try_into().unwrap()))
             }),
@@ -169,7 +201,7 @@ impl Cmd {
             // the trusted root pinned at construction, so we pass the name
             // rather than an address. Root has no prefix — its own name in
             // root storage is "registry".
-            let subregistry_name = self.wasm_name.channel().unwrap_or("registry");
+            let subregistry_name = self.wasm_name().channel().unwrap_or("registry");
             call_args.push(ScVal::String(ScString(
                 subregistry_name.try_into().unwrap(),
             )));
@@ -317,5 +349,45 @@ mod tests {
             .arg("--admin=alice")
             .assert()
             .failure();
+    }
+
+    #[tokio::test]
+    async fn from_network_copies_a_registered_contract() {
+        let registry = RegistryTest::new().await;
+        publish(&registry, "hello", "0.0.1");
+        registry
+            .registry_cli("deploy")
+            .arg("--contract-name")
+            .arg("hello")
+            .arg("--wasm-name")
+            .arg("hello")
+            .arg("--")
+            .arg("--admin=alice")
+            .assert()
+            .success();
+
+        // Source and target are both the local network here, so the copy
+        // needs a different name.
+        registry
+            .registry_cli("deploy")
+            .arg("--contract-name")
+            .arg("hello-copy")
+            .arg("--from-network")
+            .arg("local")
+            .arg("--from-contract-name")
+            .arg("hello")
+            .arg("--")
+            .arg("--admin=alice")
+            .assert()
+            .success();
+
+        let fetch = |name: &str| {
+            registry
+                .parse_cmd::<crate::commands::fetch_contract_id::Cmd>(&[name])
+                .unwrap()
+        };
+        let original = fetch("hello").fetch_contract_id().await.unwrap();
+        let copy = fetch("hello-copy").fetch_contract_id().await.unwrap();
+        assert_ne!(original, copy, "a new deployment, not the same contract");
     }
 }
