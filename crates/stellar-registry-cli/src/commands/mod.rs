@@ -4,6 +4,7 @@ use clap::{CommandFactory, FromArgMatches, Parser};
 
 pub mod account;
 pub mod account_cmd;
+pub mod clone_contract;
 pub mod create_alias;
 pub mod current_version;
 pub mod deploy;
@@ -60,6 +61,7 @@ impl Root {
     pub async fn run(&mut self) -> Result<(), Error> {
         match &mut self.cmd {
             Cmd::Account(cmd) => cmd.run().await?,
+            Cmd::CloneContract(cmd) => cmd.run().await?,
             Cmd::CurrentVersion(cmd) => cmd.run().await?,
             Cmd::Deploy(deploy) => deploy.run().await?,
             Cmd::DeployUnnamed(cmd) => cmd.run().await?,
@@ -93,6 +95,8 @@ pub enum Cmd {
     /// Name and manage accounts (G-addresses and smart accounts)
     #[command(subcommand)]
     Account(account_cmd::Cmd),
+    /// Copy a registered contract from another network: deploy its Wasm here and register it under the same name
+    CloneContract(Box<clone_contract::Cmd>),
     /// Create a local `stellar contract alias` from a named registry contract
     CreateAlias(Box<create_alias::Cmd>),
     /// Get the current (latest) version of a published Wasm
@@ -129,6 +133,8 @@ pub enum Cmd {
 pub enum Error {
     #[error(transparent)]
     Account(#[from] account_cmd::Error),
+    #[error(transparent)]
+    CloneContract(#[from] clone_contract::Error),
     #[error(transparent)]
     CreateAlias(#[from] create_alias::Error),
     #[error(transparent)]
