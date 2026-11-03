@@ -15,7 +15,7 @@ stellar-registry-build = { path = "crates/stellar-registry-build", version = "0.
 stellar-registry-name = { path = "crates/stellar-registry-name", version = "0.1.0" }
 
 # Cross-repo deps from scaffold-stellar/cli
-stellar-build = "0.0.6"
+stellar-build = "0.0.8"
 
 stellar-cli = { version = "28.1.0", package = "soroban-cli", default-features = false }
 soroban-rpc = { package = "stellar-rpc-client", version = "28.0.0" }
