@@ -508,9 +508,6 @@ pub(crate) fn import_contract(
     })
 }
 
-/// Emit a block expression registering a contract at the address
-/// `import_contract!` baked in: the imported Wasm, or `contract` (a native
-/// mock) when given. Evaluates to the `Address`.
 /// The constructor's parameters (name and type), read from the contract spec
 /// embedded in the Wasm; `None` if the contract has no constructor.
 fn constructor_params(wasm: &[u8]) -> Result<Option<Vec<(String, ScSpecTypeDef)>>, String> {
