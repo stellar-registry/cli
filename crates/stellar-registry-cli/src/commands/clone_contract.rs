@@ -5,10 +5,10 @@ use stellar_cli::{
     commands::contract::{deploy::wasm, fetch},
     config::{self, UnresolvedContract, network},
 };
-use stellar_registry_build::name::Prefixed;
+use stellar_registry_build::{name::Prefixed, registry::Registry};
 
 use crate::CommandParser;
-use crate::commands::{fetch_contract_id, global, register_contract};
+use crate::commands::{global, register_contract};
 
 /// Copy a registered contract from one network to another: look it up by
 /// name on `--from-network`, deploy its Wasm on the target network with the
@@ -49,7 +49,11 @@ pub struct Cmd {
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    FetchContractId(#[from] fetch_contract_id::Error),
+    Registry(#[from] stellar_registry_build::Error),
+    #[error(
+        "contract `{0}` is flagged as compromised on the source network; pass --force to copy it anyway"
+    )]
+    ContractFlagged(String),
     #[error(transparent)]
     Fetch(#[from] fetch::Error),
     #[error(transparent)]
@@ -89,14 +93,31 @@ impl Cmd {
         let source = self.source_config();
 
         // 1. Resolve the name on the source network, refusing flagged
-        //    contracts unless `--force`.
-        let source_id = fetch_contract_id::Cmd {
-            contract_name: self.contract_name.clone(),
-            force: self.force,
-            config: source.clone(),
-        }
-        .fetch_contract_id()
-        .await?;
+        //    contracts unless `--force`. `STELLAR_REGISTRY_CONTRACT_ID` points
+        //    at the target's registry, so it only applies to the source when
+        //    both are the same network.
+        let same_network = source.get_network()?.network_passphrase
+            == self.config.get_network()?.network_passphrase;
+        let channel = self.contract_name.channel();
+        let registry = if same_network {
+            Registry::new(&source, channel).await?
+        } else {
+            Registry::new_canonical(&source, channel).await?
+        };
+        let name = self.contract_name.name();
+        let source_id = if self.force {
+            registry.fetch_contract_id_unchecked(name).await?
+        } else {
+            registry
+                .fetch_contract_id(name)
+                .await
+                .map_err(|e| match e {
+                    stellar_registry_build::Error::ContractFlagged(_) => {
+                        Error::ContractFlagged(self.contract_name.to_string())
+                    }
+                    other => other.into(),
+                })?
+        };
 
         // 2. Fetch the deployed contract's own Wasm from the source network.
         let wasm = fetch::Cmd {

@@ -17,7 +17,25 @@ impl Registry {
     }
 
     pub async fn new(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
-        let contract = Self::verified(config)?;
+        Self::from_root(Self::verified(config)?, config, name).await
+    }
+
+    /// Like [`Self::new`], but always from the network's canonical root
+    /// registry, ignoring `STELLAR_REGISTRY_CONTRACT_ID`: that override names
+    /// one deployment (usually a local one), not a registry on every network.
+    pub async fn new_canonical(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
+        let root = Registry(Contract::new(
+            verified_contract_id(&config.get_network()?.network_passphrase),
+            config,
+        ));
+        Self::from_root(root, config, name).await
+    }
+
+    async fn from_root(
+        contract: Self,
+        config: &config::Args,
+        name: Option<&str>,
+    ) -> Result<Self, Error> {
         Ok(if let Some(name) = name {
             if let Ok(contract_id) = name.parse() {
                 Registry(Contract::new(contract_id, config))
