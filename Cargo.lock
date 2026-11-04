@@ -598,7 +598,7 @@ dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex",
+ "shlex 1.3.0",
 ]
 
 [[package]]
@@ -3578,7 +3578,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs 1.0.8",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4007,6 +4007,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
+
+[[package]]
 name = "signal-hook"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4156,7 +4162,7 @@ dependencies = [
  "serde_with",
  "sha2 0.10.9",
  "shell-escape",
- "shlex",
+ "shlex 1.3.0",
  "soroban-ledger-snapshot",
  "soroban-sdk",
  "soroban-spec",
@@ -4474,9 +4480,9 @@ dependencies = [
 
 [[package]]
 name = "stellar-build"
-version = "0.0.6"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fd5e3be902a9658fb9f642d4eef7837ab1d51e52dde9be1d9b218326499d97"
+checksum = "915a3455d5ef6013227e3ba69e7fd966c0830c4620f84c06b1dc684cae3a9465"
 dependencies = [
  "cargo_metadata",
  "sha2 0.10.9",
@@ -4486,7 +4492,7 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "stellar-registry-macro",
 ]
@@ -4508,7 +4514,7 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "assert_cmd",
  "assert_fs",
@@ -4522,7 +4528,7 @@ dependencies = [
  "rand 0.9.2",
  "reqwest 0.13.5",
  "sha2 0.11.1",
- "shlex",
+ "shlex 2.0.1",
  "soroban-cli",
  "soroban-spec-tools",
  "stellar-build",
@@ -4536,7 +4542,7 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-macro"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4996,9 +5002,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.3"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -5320,9 +5326,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.28.0"
+version = "1.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc1186384beb7dd8eedea376413fd654937285ea6c9cfbb928dc3043ea4b606"
+checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",
