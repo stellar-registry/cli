@@ -97,7 +97,7 @@ pub enum Cmd {
     CreateAlias(Box<create_alias::Cmd>),
     /// Get the current (latest) version of a published Wasm
     CurrentVersion(Box<current_version::Cmd>),
-    /// Deploy a named contract from a published Wasm, or copy one from another network
+    /// Deploy a named contract from a published Wasm
     Deploy(Box<deploy::Cmd>),
     /// Deploy a contract from a published Wasm without registering a name
     DeployUnnamed(Box<deploy_unnamed::Cmd>),

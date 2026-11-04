@@ -50,7 +50,7 @@ Note: the `justfile` still carries some recipes from the monorepo. Prefer the `c
 
 `publish` → `deploy` → `install` / `create-alias`
 - `publish` — uploads wasm to the registry with semantic versioning
-- `deploy` — instantiates a published wasm as a named contract, or with `--from-network` copies a contract registered on another network
+- `deploy` — instantiates a published wasm as a named contract
 - `install` / `create-alias` — creates a local stellar-cli alias from the registry
 
 ## Testing

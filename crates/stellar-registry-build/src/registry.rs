@@ -1,4 +1,4 @@
-use stellar_cli::config::{self, network::passphrase};
+use stellar_cli::config;
 
 use crate::{
     Error,
@@ -17,26 +17,7 @@ impl Registry {
     }
 
     pub async fn new(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
-        Self::from_root(Self::verified(config)?, config, name).await
-    }
-
-    /// Like [`Self::new`], but always from the network's canonical root
-    /// registry, ignoring `STELLAR_REGISTRY_CONTRACT_ID`: that override names
-    /// one deployment (usually a local one), not a registry on every network.
-    pub async fn new_canonical(config: &config::Args, name: Option<&str>) -> Result<Self, Error> {
-        let root = Registry(Contract::new(
-            verified_contract_id(&config.get_network()?.network_passphrase),
-            config,
-        ));
-        Self::from_root(root, config, name).await
-    }
-
-    async fn from_root(
-        contract: Self,
-        config: &config::Args,
-        name: Option<&str>,
-    ) -> Result<Self, Error> {
-        contract.ensure_local_root_exists(config).await?;
+        let contract = Self::verified(config)?;
         Ok(if let Some(name) = name {
             if let Ok(contract_id) = name.parse() {
                 Registry(Contract::new(contract_id, config))
@@ -207,29 +188,6 @@ impl Registry {
                 _ => None,
             },
         )
-    }
-
-    /// On a local network nothing is at the canonical root address unless
-    /// someone deployed a registry there, and every command would otherwise
-    /// fail with a bare "contract not found". Elsewhere the root exists.
-    async fn ensure_local_root_exists(&self, config: &config::Args) -> Result<(), Error> {
-        use stellar_cli::xdr;
-        if config.get_network()?.network_passphrase != passphrase::LOCAL {
-            return Ok(());
-        }
-        let instance = self
-            .contract_data(
-                xdr::ScVal::LedgerKeyContractInstance,
-                xdr::ContractDataDurability::Persistent,
-            )
-            .await?;
-        if instance.is_some() {
-            return Ok(());
-        }
-        Err(Error::NoLocalRegistry {
-            id: format!("{}", self.0.id()),
-            from_env: std::env::var("STELLAR_REGISTRY_CONTRACT_ID").is_ok(),
-        })
     }
 
     pub fn as_contract(&self) -> &Contract {
