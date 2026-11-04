@@ -142,6 +142,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn explains_a_missing_local_registry() {
+        let registry = RegistryTest::new().await;
+        // A valid contract id with nothing deployed at it.
+        let missing = "CBESJIMX7J53SWJGJ7WQ6QTLJI4S5LPPJNC2BNVD63GIKAYCDTDOO322";
+        let stderr = registry
+            .registry_cli("fetch-contract-id")
+            .env("STELLAR_REGISTRY_CONTRACT_ID", missing)
+            .arg("hello")
+            .assert()
+            .failure()
+            .get_output()
+            .stderr
+            .clone();
+        let stderr = String::from_utf8_lossy(&stderr);
+        assert!(
+            stderr.contains("no Stellar Registry is deployed on the local network"),
+            "{stderr}"
+        );
+        assert!(stderr.contains(missing), "{stderr}");
+    }
+
+    #[tokio::test]
     async fn flagged() {
         let registry = RegistryTest::new().await;
         let v1 = registry.hello_wasm_v1();
