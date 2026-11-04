@@ -34,12 +34,12 @@ Enable the `testutils` feature for tests (alongside `soroban-sdk`'s own):
 
 ```toml
 [dependencies]
-soroban-sdk = "27"
-stellar-registry = "0.1"
+soroban-sdk = { workspace = true }
+stellar-registry = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { version = "27", features = ["testutils"] }
-stellar-registry = { version = "0.1", features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils"] }
+stellar-registry = { workspace = true, features = ["testutils"] }
 ```
 
 Then, given a contract that imports `our_dao`:
@@ -77,7 +77,7 @@ Running tests is an ordinary build, so there is nothing to build first. Both mac
 STELLAR_NETWORK=testnet cargo test
 ```
 
-For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by `just test-register-import`.
+For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by [`just test-register-import`](https://github.com/stellar-registry/cli/tree/main/justfile)
 
 Stellar Asset Contracts (`xlm`, `"CODE:ISSUER"`, or a registered name that resolves to a SAC) are not supported by `register_import!` yet and give a compile error. Until they are, register a test asset with `Env::register_stellar_asset_contract_v2`.
 
