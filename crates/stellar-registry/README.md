@@ -77,7 +77,7 @@ Running tests is an ordinary build, so there is nothing to build first. Both mac
 STELLAR_NETWORK=testnet cargo test
 ```
 
-For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by [`just test-register-import`](https://github.com/stellar-registry/cli/tree/main/justfile).
+For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by [`just test-register-import`](https://github.com/stellar-registry/cli/blob/main/justfile).
 
 Stellar Asset Contracts (`xlm`, `"CODE:ISSUER"`, or a registered name that resolves to a SAC) are not supported by `register_import!` yet and give a compile error. Until they are, register a test asset with `Env::register_stellar_asset_contract_v2`.
 
