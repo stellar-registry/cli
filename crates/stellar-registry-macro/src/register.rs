@@ -76,7 +76,7 @@ impl Parse for RegisterInput {
                     return Err(syn::Error::new(
                         key.span(),
                         format!(
-                            "unknown option `{other}`: expected `args = (..)` or `contract = ..`"
+                            "unknown option `{other}`: expected `args = {{ .. }}`, `args = (..)` or `contract = ..`"
                         ),
                     ));
                 }

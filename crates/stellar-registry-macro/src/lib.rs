@@ -102,8 +102,8 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///   address and Wasm (same cache files, same `STELLAR_NO_REGISTRY`
 ///   handling, same flagged-contract check).
 /// - `args = { name: value, .. }` passes constructor arguments by parameter
-///   name, read from the imported Wasm's constructor. Values are type-
-///   checked against the constructor. Leaving out `args` when the
+///   name, read from the imported Wasm's constructor. Values are
+///   type-checked against the constructor. Leaving out `args` when the
 ///   constructor takes parameters is a compile error that lists them. A
 ///   positional tuple, `args = (..)`, also works.
 /// - `contract = <expr>` registers a native `#[contract]` type instead of the
