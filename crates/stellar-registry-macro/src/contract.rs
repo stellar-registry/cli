@@ -17,9 +17,9 @@ use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_n
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
-struct Input {
-    env: Expr,
-    name: Name,
+pub(crate) struct Input {
+    pub(crate) env: Expr,
+    pub(crate) name: Name,
 }
 
 impl Parse for Input {
@@ -292,10 +292,26 @@ fn expand_asset_token_client(env: &Expr, asset_xdr: &[u8]) -> proc_macro2::Token
     }
 }
 
-pub(crate) fn import_contract(
-    input: proc_macro::TokenStream,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let Input { env, name } = syn::parse(input)?;
+/// What a name resolved to at build time.
+#[derive(Debug)]
+pub(crate) enum Resolved {
+    /// A Wasm-backed contract: its deployed address and cached Wasm.
+    Wasm {
+        mod_ident: Ident,
+        wasm_path: PathBuf,
+        address: String,
+    },
+    /// A registered name that points at a Stellar Asset Contract. There is
+    /// no Wasm.
+    Sac { address: String },
+    /// Asset syntax: the SAC address is derived at runtime from this XDR.
+    Asset { xdr: Vec<u8> },
+}
+
+/// Resolve `name` for `macro_name!` — shared by `import_contract!` and
+/// `register_import!` so a test registers at exactly the address (and with
+/// exactly the Wasm) the contract under test was compiled against.
+pub(crate) fn resolve(name: &Name, macro_name: &str) -> syn::Result<Resolved> {
     let span = name.span();
     let err = |msg: String| syn::Error::new(span, msg);
 
@@ -304,16 +320,16 @@ pub(crate) fn import_contract(
     let raw = name.raw();
     if raw.contains('@') {
         return Err(err(format!(
-            "import_contract! does not take a version — a deployed contract has no version \
-             (got {raw:?}). Use just the contract name, e.g. `import_contract!(env, our_dao)`."
+            "{macro_name}! does not take a version — a deployed contract has no version \
+             (got {raw:?}). Use just the contract name, e.g. `{macro_name}!(env, our_dao)`."
         )));
     }
 
     // Asset syntax (`xlm`, `native`, `"CODE:ISSUER"`) needs no registry
     // lookup or cache files: the SAC address is derived at runtime.
     if is_asset_syntax(&raw) {
-        let (asset_xdr, _code) = asset::asset_xdr(&raw).map_err(err)?;
-        return Ok(expand_asset_token_client(&env, &asset_xdr));
+        let (xdr, _code) = asset::asset_xdr(&raw).map_err(err)?;
+        return Ok(Resolved::Asset { xdr });
     }
 
     let contract: Prefixed = name.parse_as()?;
@@ -349,7 +365,7 @@ pub(crate) fn import_contract(
     if cached_sac_address.is_some()
         && !wasm_is_stale(cached_sac_address.as_deref(), &address, no_registry)
     {
-        return Ok(expand_token_client(&env, &address));
+        return Ok(Resolved::Sac { address });
     }
 
     // 3. Ensure the deployed contract's wasm is on disk for `contractimport!`,
@@ -371,19 +387,32 @@ pub(crate) fn import_contract(
             // doesn't repeat a fetch that can only fail the same way again.
             Err(e) if is_stellar_asset_fetch_error(&e) => {
                 record_sac_marker(&sac_marker_path, &address);
-                return Ok(expand_token_client(&env, &address));
+                return Ok(Resolved::Sac { address });
             }
             Err(e) => return Err(err(e)),
         }
     }
 
-    // 4. Generate the client from that wasm and bind it to the address.
-    Ok(expand(
-        &env,
-        &mod_ident,
-        &wasm_path.to_string_lossy(),
-        &address,
-    ))
+    Ok(Resolved::Wasm {
+        mod_ident,
+        wasm_path,
+        address,
+    })
+}
+
+pub(crate) fn import_contract(
+    input: proc_macro::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let Input { env, name } = syn::parse(input)?;
+    Ok(match resolve(&name, "import_contract")? {
+        Resolved::Wasm {
+            mod_ident,
+            wasm_path,
+            address,
+        } => expand(&env, &mod_ident, &wasm_path.to_string_lossy(), &address),
+        Resolved::Sac { address } => expand_token_client(&env, &address),
+        Resolved::Asset { xdr } => expand_asset_token_client(&env, &xdr),
+    })
 }
 
 #[cfg(test)]

@@ -48,3 +48,5 @@ jobs:
         run: just clippy-test
       - name: Unit Tests
         run: just test
+      - name: Fixture tests (import_contract! + register_import!)
+        run: just test-register-import
