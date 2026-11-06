@@ -94,6 +94,7 @@ fn tips() {
     let env = Env::default();
     env.mock_all_auths();
     let xlm = register_import!(&env, xlm);
+    let alice = Address::generate(&env);
     token::StellarAssetClient::new(&env, &xlm).mint(&alice, &1_000);
     // ...
 }

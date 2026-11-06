@@ -1,12 +1,6 @@
 #![no_std]
-//! Demonstrates getting a working Stellar Asset Contract client via
-//! `stellar_registry::import_contract!(env, xlm)`, and unit-testing it with
-//! `stellar_registry::testutils::register_import!`.
-//!
-//! `import_contract!(env, xlm)` derives XLM's address for whichever network
-//! the contract runs on, with no network call and no cache files. In a
-//! sandboxed test `Env` nothing is at that address, so the test below calls
-//! `register_import!(&env, xlm)` to put a mintable test asset there.
+//! Calls XLM through `import_contract!(env, xlm)`, and tests it with
+//! `register_import!(&env, xlm)`, which puts a mintable test asset there.
 use soroban_sdk::{Address, Env, contract, contractimpl};
 
 #[contract]

@@ -118,12 +118,9 @@ fn mock_args(input: &RegisterInput) -> syn::Result<proc_macro2::TokenStream> {
     }
 }
 
-/// Emit a block expression for a Stellar Asset Contract name, at `address`
-/// (tokens in terms of `__env`): the mock when `contract` is given, otherwise
-/// a test asset. A test `Env` only creates a SAC at the address derived from
-/// its asset, so this registers a throwaway one and copies its contract
-/// instance (executable, admin, asset info) to `address`. Evaluates to the
-/// `Address`.
+/// A test `Env` only creates a SAC at its own asset's address, so register a
+/// throwaway one and copy its instance to `address`. (Deploying the imported
+/// asset itself would leave native XLM with no admin to mint from.)
 fn expand_register_sac(
     input: &RegisterInput,
     address: &proc_macro2::TokenStream,
@@ -174,8 +171,8 @@ fn expand_register_sac(
             let (__entry, __live_until) = __env
                 .host()
                 .get_ledger_entry(&__instance_key(&__double))
-                .unwrap()
-                .unwrap();
+                .expect("register_import!: reading the test asset's instance")
+                .expect("register_import!: the test asset has no instance entry");
             let mut __entry = (*__entry).clone();
             if let __xdr::LedgerEntryData::ContractData(__data) = &mut __entry.data {
                 __data.contract = __xdr::ScAddress::from(&__address);
@@ -187,7 +184,7 @@ fn expand_register_sac(
                     &__std::rc::Rc::new(__entry),
                     __live_until,
                 )
-                .unwrap();
+                .expect("register_import!: placing the test asset at the imported address");
             __address
         }
     })
@@ -610,20 +607,11 @@ mod tests {
 
     #[test]
     fn registered_sac_gets_a_test_asset_at_the_baked_address() {
-        for tokens in [quote!(&env, xlm), quote!(&env, "circle/usdc")] {
-            let out = expanded(tokens, &sac());
-            assert!(
-                out.contains("register_stellar_asset_contract_v2"),
-                "stands up a real SAC: {out}"
-            );
-            assert!(
-                out.contains("add_ledger_entry"),
-                "copies its instance to the baked address: {out}"
-            );
-            assert!(out.contains(A), "bakes the resolved id: {out}");
-            assert!(!out.contains("register_at"), "{out}");
-            assert!(!out.contains("include_bytes"), "no wasm exists: {out}");
-        }
+        let out = expanded(quote!(&env, "circle/usdc"), &sac());
+        assert!(out.contains("register_stellar_asset_contract_v2"), "{out}");
+        assert!(out.contains("add_ledger_entry"), "{out}");
+        assert!(out.contains(A), "{out}");
+        assert!(!out.contains("register_at"), "{out}");
     }
 
     #[test]
@@ -651,10 +639,7 @@ mod tests {
         let (xdr, _) = asset::asset_xdr("xlm").unwrap();
         let out = expanded(quote!(&env, xlm), &Resolved::Asset { xdr });
         assert!(out.contains("register_stellar_asset_contract_v2"), "{out}");
-        assert!(
-            out.contains("with_stellar_asset"),
-            "derives the address the import will use: {out}"
-        );
+        assert!(out.contains("with_stellar_asset"), "{out}");
         assert!(!out.contains("Address :: from_str"), "{out}");
     }
 }

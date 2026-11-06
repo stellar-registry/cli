@@ -122,19 +122,18 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///
 /// For `xlm`/`native`, `"CODE:ISSUER"`, or a registered name that resolves to
 /// a SAC, there is no Wasm to register. `register_import!` instead puts a
-/// test asset (as made by `Env::register_stellar_asset_contract_v2`) at the
-/// address `import_contract!` uses (for asset names, the one derived for the
-/// test `Env`'s network), with a generated admin so tests can mint:
+/// mintable test asset, with a generated admin, at the address
+/// `import_contract!` uses:
 ///
 /// ```ignore
 /// env.mock_all_auths();
 /// let xlm = register_import!(&env, xlm);
+/// let alice = Address::generate(&env);
 /// token::StellarAssetClient::new(&env, &xlm).mint(&alice, &1_000);
 /// ```
 ///
-/// It is a stand-in, not the real asset: its code and issuer are the test
-/// asset's, whatever name was imported. `args` is rejected (a SAC has no
-/// constructor); `contract = <expr>` works as for any other name.
+/// Its code and issuer are the test asset's, not the imported one's. `args` is
+/// rejected (a SAC has no constructor); `contract = <expr>` works as usual.
 #[proc_macro]
 pub fn register_import(input: TokenStream) -> TokenStream {
     register::register_import(input).to_token_stream()
