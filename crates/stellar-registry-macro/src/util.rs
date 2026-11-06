@@ -88,6 +88,21 @@ pub(crate) fn network_name() -> String {
     std::env::var("STELLAR_NETWORK").unwrap_or_else(|_| "local".to_owned())
 }
 
+/// The error for a registry lookup on `local` that failed because the name
+/// isn't registered there: the registry contract's `NoSuchWasmPublished` (#1),
+/// `NoSuchVersion` (#2) or `NoSuchContractDeployed` (#4).
+pub(crate) fn local_not_registered(stderr: &str, network: &str, name: &str) -> Option<String> {
+    let not_registered = ["#1)", "#2)", "#4)"]
+        .iter()
+        .any(|code| stderr.contains(&format!("Error(Contract, {code}")));
+    (network == "local" && not_registered).then(|| {
+        format!(
+            "`STELLAR_NETWORK=local` and `{name}` is not in the local Registry. For predictable \
+             local builds, use Stellar Scaffold: https://stellarscaffold.org"
+        )
+    })
+}
+
 /// An item that reads the network env vars via `option_env!`, so rustc records
 /// them in dep-info and cargo re-expands the macro when the network changes.
 /// Without it, switching networks reuses output resolved for the old one.
@@ -197,6 +212,23 @@ mod tests {
     fn mod_ident_errors_on_keywords() {
         let p: Prefixed = "mod".parse().unwrap();
         assert!(mod_ident(&p, Span::call_site()).is_err());
+    }
+
+    #[test]
+    fn local_not_registered_points_to_scaffold() {
+        let stderr = "... topics:[error, Error(Contract, #4)], data:...";
+        let msg = local_not_registered(stderr, "local", "our_dao").unwrap();
+        assert!(
+            msg.contains("`our_dao` is not in the local Registry"),
+            "{msg}"
+        );
+        assert!(msg.contains("https://stellarscaffold.org"), "{msg}");
+        // Only on local, and only for "not registered" contract errors.
+        assert!(local_not_registered(stderr, "testnet", "our_dao").is_none());
+        let other = "error: connection refused";
+        assert!(local_not_registered(other, "local", "our_dao").is_none());
+        let unrelated = "Error(Contract, #7)";
+        assert!(local_not_registered(unrelated, "local", "our_dao").is_none());
     }
 
     #[test]

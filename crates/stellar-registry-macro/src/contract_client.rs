@@ -10,7 +10,9 @@ use syn::{
 
 use stellar_registry_name::Versioned;
 
-use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
+use crate::util::{
+    Name, explorer_url, local_not_registered, manifest, mod_ident, network_name, track_network_env,
+};
 
 pub(crate) fn import_contract_client(
     input: proc_macro::TokenStream,
@@ -186,6 +188,9 @@ fn download_from_registry(
         ));
     }
     let network = network_name();
+    if let Some(msg) = local_not_registered(&stderr, &network, &lookup_name) {
+        return Err(syn::Error::new(span, msg));
+    }
     let name_check = explorer_url(&network).map_or_else(
         || "\n1. check the name & network and try again".to_string(),
         |url| format!("\n1. check that you got the name right: {url}/wasms"),
