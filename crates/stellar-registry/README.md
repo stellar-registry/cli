@@ -100,7 +100,7 @@ fn tips() {
 }
 ```
 
-Its code and issuer are the test asset's, not the imported one's. `args` is not accepted (a SAC has no constructor); `contract = ..` works as for any other name. The [`xlm_tip_jar` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/xlm_tip_jar) is a complete example.
+Its `name()` and `symbol()` return the test asset's own values, not `native` or `USDC`, which only matters if your contract reads them; transfers and balances behave normally. `args` is not accepted (a SAC has no constructor); `contract = ..` works as for any other name. The [`xlm_tip_jar` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/xlm_tip_jar) is a complete example.
 
 # Import wasm with `import_contract_client!`
 

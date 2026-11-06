@@ -97,7 +97,9 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///   must be a tuple.
 /// - For a Stellar Asset Contract (`xlm`, `"CODE:ISSUER"`, or a name that
 ///   resolves to one), it registers a mintable test asset with a generated
-///   admin; `args` aren't accepted.
+///   admin; `args` aren't accepted. Its `name()` and `symbol()` return the
+///   test asset's own values, not `native` or `USDC`, which only matters if
+///   the contract reads them; transfers and balances behave normally.
 ///
 /// Needs `stellar-registry`'s and `soroban-sdk`'s `testutils` features.
 #[proc_macro]
