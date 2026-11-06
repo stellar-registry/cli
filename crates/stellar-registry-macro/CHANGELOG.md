@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/stellar-registry/cli/compare/stellar-registry-macro-v0.1.3...stellar-registry-macro-v0.1.4) - 2026-11-06
+
+### Added
+
+- support Stellar Asset Contracts in register_import! ([#82](https://github.com/stellar-registry/cli/pull/82))
+- add register_import! for testing import_contract! callers ([#77](https://github.com/stellar-registry/cli/pull/77))
+
 ## [0.1.3](https://github.com/stellar-registry/cli/compare/stellar-registry-macro-v0.1.2...stellar-registry-macro-v0.1.3) - 2026-10-25
 
 ### Other
