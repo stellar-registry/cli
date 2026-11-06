@@ -118,10 +118,10 @@ fn mock_args(input: &RegisterInput) -> syn::Result<proc_macro2::TokenStream> {
     }
 }
 
-/// A test `Env` only creates a SAC at its own asset's address, so register a
-/// throwaway one and copy its instance to `address`; the throwaway stays, as
-/// the test host can't remove ledger entries. (Deploying the imported asset
-/// itself would leave native XLM with no admin to mint from.)
+/// A test `Env` only creates a SAC at its own asset's address, so this copies a
+/// throwaway one's instance to `address`. The throwaway stays (the host can't
+/// delete entries); deploying the real asset would leave native XLM without an
+/// admin.
 fn expand_register_sac(
     input: &RegisterInput,
     address: &proc_macro2::TokenStream,
@@ -620,7 +620,7 @@ mod tests {
     #[test]
     fn stellar_asset_contract_can_be_replaced_by_a_mock() {
         let out = expanded(
-            quote!(&env, xlm, contract = MockToken, args = (7u32,)),
+            quote!(&env, "circle/usdc", contract = MockToken, args = (7u32,)),
             &sac(),
         );
         assert!(out.contains("Env :: register_at"), "{out}");
@@ -630,11 +630,23 @@ mod tests {
 
     #[test]
     fn stellar_asset_contract_rejects_constructor_args() {
-        let input: RegisterInput = parse2(quote!(&env, xlm, args = (&admin,))).unwrap();
+        let input: RegisterInput = parse2(quote!(&env, "circle/usdc", args = (&admin,))).unwrap();
         let msg = expand_register(&input, &sac(), None)
             .unwrap_err()
             .to_string();
         assert!(msg.contains("has no constructor"), "{msg}");
+    }
+
+    #[test]
+    fn asset_syntax_can_be_replaced_by_a_mock() {
+        let (xdr, _) = asset::asset_xdr("xlm").unwrap();
+        let out = expanded(
+            quote!(&env, xlm, contract = MockToken),
+            &Resolved::Asset { xdr },
+        );
+        assert!(out.contains("Env :: register_at"), "{out}");
+        assert!(out.contains("with_stellar_asset"), "{out}");
+        assert!(!out.contains("register_stellar_asset_contract_v2"), "{out}");
     }
 
     #[test]
@@ -643,10 +655,7 @@ mod tests {
         let out = expanded(quote!(&env, xlm), &Resolved::Asset { xdr });
         assert!(out.contains("register_stellar_asset_contract_v2"), "{out}");
         assert!(out.contains("with_stellar_asset"), "{out}");
-        assert!(
-            !out.contains("STELLAR_NETWORK"),
-            "no build-network tracking: {out}"
-        );
+        assert!(!out.contains("STELLAR_NETWORK"), "{out}");
         assert!(!out.contains("Address :: from_str"), "{out}");
     }
 }
