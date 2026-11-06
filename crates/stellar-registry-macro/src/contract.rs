@@ -13,7 +13,9 @@ use syn::{
 use stellar_registry_name::Prefixed;
 
 use crate::asset;
-use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
+use crate::util::{
+    Name, explorer_url, local_not_registered, manifest, mod_ident, network_name, track_network_env,
+};
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
@@ -181,6 +183,9 @@ fn fetch_contract_id(lookup: &Prefixed, help: &str) -> Result<String, String> {
         return Err(format!(
             "contract `{lookup}` is flagged as compromised in the registry; refusing to import it."
         ));
+    }
+    if let Some(msg) = local_not_registered(&stderr, &network_name(), &lookup.to_string()) {
+        return Err(msg);
     }
     Err(format!(
         "Could not resolve a contract id for `{lookup}` on {network}. Things to try:\n\n\
