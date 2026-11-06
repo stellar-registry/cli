@@ -16,7 +16,7 @@ pub struct Cmd {
     pub force: bool,
 
     #[command(flatten)]
-    pub config: global::Args,
+    pub config: global::ReadArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -40,7 +40,7 @@ impl Cmd {
     }
 
     pub async fn fetch_account_id(&self) -> Result<String, Error> {
-        let registry = self.account_name.registry(&self.config).await?;
+        let registry = self.account_name.registry(&self.config.config()).await?;
         let name = self.account_name.name();
         if self.force {
             return Ok(registry.fetch_account_id_unchecked(name).await?);

@@ -10,7 +10,7 @@ pub struct Cmd {
     pub wasm_name: Prefixed,
 
     #[command(flatten)]
-    pub config: global::Args,
+    pub config: global::ReadArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,7 +31,7 @@ impl Cmd {
     }
 
     pub async fn current_version(&self) -> Result<String, Error> {
-        let registry = self.wasm_name.registry(&self.config).await?;
+        let registry = self.wasm_name.registry(&self.config.config()).await?;
         let slop = ["current_version", "--wasm-name", self.wasm_name.name()];
         let raw = registry
             .as_contract()

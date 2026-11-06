@@ -21,7 +21,7 @@ pub struct Cmd {
     pub force: bool,
 
     #[command(flatten)]
-    pub config: global::Args,
+    pub config: global::ReadArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -72,7 +72,7 @@ impl Cmd {
     }
 
     pub async fn get_contract_id(&self) -> Result<Contract, Error> {
-        let registry = &self.contract.registry(&self.config).await?;
+        let registry = &self.contract.registry(&self.config.config()).await?;
         eprintln!("Fetching contract ID via registry...");
         if self.force {
             return Ok(registry

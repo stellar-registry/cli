@@ -11,7 +11,7 @@ pub struct Cmd {
     pub account_name: Prefixed,
 
     #[command(flatten)]
-    pub config: global::Args,
+    pub config: global::ReadArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,7 +31,7 @@ impl Cmd {
     }
 
     pub async fn fetch_account_owner(&self) -> Result<String, Error> {
-        let registry = self.account_name.registry(&self.config).await?;
+        let registry = self.account_name.registry(&self.config.config()).await?;
         Ok(registry
             .fetch_account_owner(self.account_name.name())
             .await?)

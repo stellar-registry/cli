@@ -20,7 +20,7 @@ pub struct Cmd {
     pub out_file: Option<PathBuf>,
 
     #[command(flatten)]
-    pub config: global::Args,
+    pub config: global::ReadArgs,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -61,7 +61,7 @@ impl Cmd {
     }
 
     pub async fn download_bytes(&self) -> Result<Vec<u8>, Error> {
-        let registry = &self.wasm_name.registry(&self.config).await?;
+        let registry = &self.wasm_name.registry(&self.config.config()).await?;
         let mut slop = vec!["fetch_hash", "--wasm-name", &self.wasm_name.name()];
         let version = self.version.clone().map(|v| format!("\"{v}\""));
         if let Some(version) = version.as_deref() {
