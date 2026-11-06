@@ -25,4 +25,12 @@ pub enum Error {
     Rpc(#[from] soroban_rpc::Error),
     #[error(transparent)]
     Xdr(#[from] stellar_cli::xdr::Error),
+    #[error(
+        "no Stellar Registry is deployed on the local network (looked for one at \
+         {id}{from_env}). Deploy the registry contract on local and set \
+         STELLAR_REGISTRY_CONTRACT_ID to its id, or set up local development with Stellar \
+         Scaffold.",
+        from_env = if *.from_env { " (from STELLAR_REGISTRY_CONTRACT_ID)" } else { "" }
+    )]
+    NoLocalRegistry { id: String, from_env: bool },
 }

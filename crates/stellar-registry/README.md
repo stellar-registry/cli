@@ -34,12 +34,12 @@ Enable the `testutils` feature for tests (alongside `soroban-sdk`'s own):
 
 ```toml
 [dependencies]
-soroban-sdk = "27"
-stellar-registry = "0.1"
+soroban-sdk = { workspace = true }
+stellar-registry = { workspace = true }
 
 [dev-dependencies]
-soroban-sdk = { version = "27", features = ["testutils"] }
-stellar-registry = { version = "0.1", features = ["testutils"] }
+soroban-sdk = { workspace = true, features = ["testutils"] }
+stellar-registry = { workspace = true, features = ["testutils"] }
 ```
 
 Then, given a contract that imports `our_dao`:
@@ -68,7 +68,7 @@ fn proposes() {
 
 Two options, in either order:
 
-- `args = { .. }` passes constructor arguments by name: `register_import!(&env, our_dao, args = { admin, quorum: 7u32 })`. The names and types come from the imported contract's constructor, so a misspelled name or wrong type is a compile error, and leaving `args` out when the constructor needs some fails with the list to fill in, e.g. `args = { admin: <Address>, quorum: <u32> }`. `{ admin }` is shorthand for `{ admin: admin }`; values are borrowed, not moved. A positional tuple, `args = (&admin, 7u32)`, also works.
+- `args = { .. }` passes constructor arguments by name: `register_import!(&env, our_dao, args = { admin, quorum: 7u32 })`. The names and types come from the imported contract's constructor, so a misspelled name or wrong type is a compile error, and leaving `args` out when the constructor needs some fails with the list to fill in, e.g. `args = { admin: <Address>, quorum: <u32> }`. A positional tuple, `args = (&admin, 7u32)`, also works.
 - `contract = ..` registers a native contract in place of the Wasm, when you want to control what the dependency returns: `register_import!(&env, our_dao, contract = MockDao)`. `MockDao` is an ordinary `#[contract]` type with the functions your contract calls; pass its constructor arguments as a tuple.
 
 Running tests is an ordinary build, so there is nothing to build first. Both macros resolve the name at compile time on the network the build uses, and share the cached id and Wasm (`target/stellar/<network>/deployed/<name>.id` and `.wasm`). Run tests on a network where the name is registered:
@@ -77,7 +77,7 @@ Running tests is an ordinary build, so there is nothing to build first. Both mac
 STELLAR_NETWORK=testnet cargo test
 ```
 
-For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by `just test-register-import`.
+For tests with no network access, such as in CI, set `STELLAR_NO_REGISTRY=1` and put those two files in place before building (from `stellar registry fetch-contract-id` and `stellar contract fetch`, or from copies you commit). The [`hello_caller` fixture](https://github.com/stellar-registry/cli/tree/main/crates/stellar-registry-test/fixtures/contracts/hello_caller) does this, run by [`just test-register-import`](https://github.com/stellar-registry/cli/blob/main/justfile).
 
 ### Testing Stellar Asset Contracts
 

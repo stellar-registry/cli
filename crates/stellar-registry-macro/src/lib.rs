@@ -10,6 +10,7 @@ use proc_macro::TokenStream;
 mod asset;
 mod contract;
 mod contract_client;
+mod register;
 mod util;
 
 use util::ProcMacroWrapper as _;
@@ -102,15 +103,15 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 ///   address and Wasm (same cache files, same `STELLAR_NO_REGISTRY`
 ///   handling, same flagged-contract check).
 /// - `args = { name: value, .. }` passes constructor arguments by parameter
-///   name, read from the imported Wasm's constructor; `{ admin }` is
-///   shorthand for `{ admin: admin }`. Values are borrowed, not moved, and
+///   name, read from the imported Wasm's constructor. Values are
 ///   type-checked against the constructor. Leaving out `args` when the
 ///   constructor takes parameters is a compile error that lists them. A
 ///   positional tuple, `args = (..)`, also works.
 /// - `contract = <expr>` registers a native `#[contract]` type instead of the
-///   Wasm, for when you want to control what the dependency returns. Its
-///   constructor arguments are a tuple, `args = (..)`, since a mock has no
-///   spec to name them by.
+///   Wasm, for when you want to control what the dependency returns. A mock
+///   can have its own constructor, so `args` may be given with `contract`, but
+///   only as a tuple: named `args` are rejected, since a mock has no spec to
+///   name them by.
 ///
 /// Exported as `stellar_registry::testutils::register_import!`, behind
 /// `stellar-registry`'s `testutils` feature. The expansion calls
@@ -136,7 +137,7 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 /// constructor); `contract = <expr>` works as for any other name.
 #[proc_macro]
 pub fn register_import(input: TokenStream) -> TokenStream {
-    contract::register_import(input).to_token_stream()
+    register::register_import(input).to_token_stream()
 }
 
 /// Generate a contract client from a published wasm — from your workspace's
