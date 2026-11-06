@@ -79,7 +79,7 @@ pub fn import_contract(input: TokenStream) -> TokenStream {
 }
 
 /// Register an [`import_contract!`]-ed contract in a test `Env`, at the
-/// address `import_contract!` baked in. Evaluates to that `Address`.
+/// address `import_contract!` uses. Evaluates to that `Address`.
 ///
 /// `import_contract!(env, our_dao)` compiles a real on-chain address into
 /// your contract, but nothing lives at that address in a sandboxed test
