@@ -5,12 +5,13 @@ use stellar_registry_build::name::{Prefixed, RegistryAccess};
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
+#[command(mut_arg("source_account", global::optional_source))]
 pub struct Cmd {
     /// Name of published Wasm
     pub wasm_name: Prefixed,
 
     #[command(flatten)]
-    pub config: global::ReadArgs,
+    pub config: global::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -31,7 +32,7 @@ impl Cmd {
     }
 
     pub async fn current_version(&self) -> Result<String, Error> {
-        let registry = self.wasm_name.registry(&self.config.config()).await?;
+        let registry = self.wasm_name.registry(&self.config).await?;
         let slop = ["current_version", "--wasm-name", self.wasm_name.name()];
         let raw = registry
             .as_contract()

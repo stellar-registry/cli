@@ -5,6 +5,7 @@ use stellar_registry_build::name::{Prefixed, RegistryAccess};
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
+#[command(mut_arg("source_account", global::optional_source))]
 pub struct Cmd {
     /// Name of published Wasm
     pub wasm_name: Prefixed,
@@ -14,7 +15,7 @@ pub struct Cmd {
     pub version: Option<String>,
 
     #[command(flatten)]
-    pub config: global::ReadArgs,
+    pub config: global::Args,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -35,7 +36,7 @@ impl Cmd {
     }
 
     pub async fn fetch_hash(&self) -> Result<String, Error> {
-        let registry = self.wasm_name.registry(&self.config.config()).await?;
+        let registry = self.wasm_name.registry(&self.config).await?;
         let mut slop = vec!["fetch_hash", "--wasm-name", &self.wasm_name.name()];
         let version = self.version.clone().map(|v| format!("\"{v}\""));
         if let Some(version) = version.as_deref() {

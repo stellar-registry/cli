@@ -26,36 +26,12 @@ impl Args {
 /// Simulation accepts any public key as the source, even an unfunded one.
 const READ_ONLY_SOURCE: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 
-/// Config for commands that only simulate reads, so need no source account.
-#[derive(clap::Args, Debug, Clone)]
-pub struct ReadArgs {
-    #[command(flatten)]
-    pub network: config::network::Args,
-
-    #[command(flatten)]
-    pub locator: config::locator::Args,
-
-    /// Account to simulate as. Optional: reads work with any public key.
-    #[arg(long, short = 's', visible_alias = "source", env = "STELLAR_ACCOUNT")]
-    pub source_account: Option<config::address::UnresolvedMuxedAccount>,
-}
-
-impl ReadArgs {
-    pub fn config(&self) -> config::Args {
-        config::Args {
-            network: self.network.clone(),
-            locator: self.locator.clone(),
-            source_account: self
-                .source_account
-                .clone()
-                .unwrap_or_else(|| READ_ONLY_SOURCE.parse().expect("valid public key")),
-            ..Default::default()
-        }
-    }
-
-    pub fn get_network(&self) -> Result<config::network::Network, config::Error> {
-        self.config().get_network()
-    }
+/// For `#[command(mut_arg("source_account", global::optional_source))]` on
+/// commands that only simulate reads, so they run without an identity.
+pub fn optional_source(arg: clap::Arg) -> clap::Arg {
+    arg.required(false)
+        .default_value(READ_ONLY_SOURCE)
+        .hide_default_value(true)
 }
 
 #[cfg(test)]
@@ -63,14 +39,15 @@ mod tests {
     use clap::Parser;
 
     #[derive(Parser)]
+    #[command(mut_arg("source_account", super::optional_source))]
     struct Cmd {
         #[command(flatten)]
-        config: super::ReadArgs,
+        config: super::Args,
     }
 
     #[test]
-    fn read_args_need_no_source_account() {
+    fn optional_source_needs_no_identity() {
         let cmd = Cmd::try_parse_from(["cmd", "--network", "testnet"]).unwrap();
-        cmd.config.config().source_account().unwrap();
+        cmd.config.source_account().unwrap();
     }
 }

@@ -447,8 +447,7 @@ mod tests {
         let config = registry
             .parse_cmd::<crate::commands::fetch_account_owner::Cmd>(&["bob"])
             .unwrap()
-            .config
-            .config();
+            .config;
         let root = Registry::new(&config, None).await.unwrap();
         assert_eq!(
             root.account_preauth_owner("bob", &bob).await.unwrap(),
@@ -548,8 +547,7 @@ mod tests {
         let config = registry
             .parse_cmd::<crate::commands::fetch_account_owner::Cmd>(&["bob"])
             .unwrap()
-            .config
-            .config();
+            .config;
         let root = Registry::new(&config, None).await.unwrap();
         assert!(matches!(
             root.fetch_account_id("bob").await,
