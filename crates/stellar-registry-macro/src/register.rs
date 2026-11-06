@@ -119,14 +119,15 @@ fn mock_args(input: &RegisterInput) -> syn::Result<proc_macro2::TokenStream> {
 }
 
 /// A test `Env` only creates a SAC at its own asset's address, so register a
-/// throwaway one and copy its instance to `address`. (Deploying the imported
-/// asset itself would leave native XLM with no admin to mint from.)
+/// throwaway one and copy its instance to `address`; the throwaway stays, as
+/// the test host can't remove ledger entries. (Deploying the imported asset
+/// itself would leave native XLM with no admin to mint from.)
 fn expand_register_sac(
     input: &RegisterInput,
     address: &proc_macro2::TokenStream,
+    track: &proc_macro2::TokenStream,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let env = &input.env;
-    let track = track_network_env();
     if let Some(contract) = &input.contract {
         let args = mock_args(input)?;
         return Ok(quote! {
@@ -146,7 +147,7 @@ fn expand_register_sac(
             span,
             format!(
                 "`{}` is a Stellar Asset Contract, which has no constructor; remove `args`, \
-                 or pass `contract = ..` to register a mock that takes them.",
+                 or pass `contract = ..` to register a mock that takes them",
                 input.name.raw()
             ),
         ));
@@ -359,10 +360,12 @@ fn expand_register(
         } => (mod_ident, wasm_path, address),
         Resolved::Sac { address } => {
             let address = quote!(::soroban_sdk::Address::from_str(__env, #address));
-            return expand_register_sac(input, &address);
+            return expand_register_sac(input, &address, &track);
         }
         Resolved::Asset { xdr } => {
-            return expand_register_sac(input, &asset::runtime_address(&quote!(__env), xdr));
+            // Derived at runtime, so it doesn't depend on the build network.
+            let address = asset::runtime_address(&quote!(__env), xdr);
+            return expand_register_sac(input, &address, &quote!());
         }
     };
     let (module, contract, args) = if let Some(contract) = &input.contract {
@@ -640,6 +643,10 @@ mod tests {
         let out = expanded(quote!(&env, xlm), &Resolved::Asset { xdr });
         assert!(out.contains("register_stellar_asset_contract_v2"), "{out}");
         assert!(out.contains("with_stellar_asset"), "{out}");
+        assert!(
+            !out.contains("STELLAR_NETWORK"),
+            "no build-network tracking: {out}"
+        );
         assert!(!out.contains("Address :: from_str"), "{out}");
     }
 }
