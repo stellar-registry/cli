@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.3.0...stellar-registry-cli-v0.3.1) - 2026-11-06
+
+### Added
+
+- add register_import! for testing import_contract! callers ([#77](https://github.com/stellar-registry/cli/pull/77))
+
+### Other
+
+- *(deps)* bump shlex from 1.3.0 to 2.0.1 ([#105](https://github.com/stellar-registry/cli/pull/105))
+
 ## [0.3.0](https://github.com/stellar-registry/cli/compare/stellar-registry-cli-v0.2.0...stellar-registry-cli-v0.3.0) - 2026-10-25
 
 ### Fixed
