@@ -13,9 +13,7 @@ use syn::{
 use stellar_registry_name::Prefixed;
 
 use crate::asset;
-use crate::util::{
-    Name, explorer_url, local_not_registered, manifest, mod_ident, network_name, track_network_env,
-};
+use crate::util::{Name, explorer_url, manifest, mod_ident, network_name, track_network_env};
 
 /// `import_contract!(env_expr, name)` — `name` is a bare ident or a string
 /// literal (optionally channel-prefixed, e.g. `"unverified/our_dao"`).
@@ -105,16 +103,23 @@ fn wasm_is_stale(previously_cached_id: Option<&str>, address: &str, no_registry:
 /// the network has an explorer, a manual repro command, and the offline escape
 /// hatch with the exact cache paths this build expects.
 fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> String {
-    let name_check = explorer_url(&network_name())
+    let network = network_name();
+    let name_check = explorer_url(&network)
         .map(|url| format!("- Check that you got the name right: {url}/contracts\n"))
         .unwrap_or_default();
+    // A local registry only has what was deployed to it.
+    let scaffold = if network == "local" {
+        "\n- Use Stellar Scaffold to achieve predictable local builds: https://stellarscaffold.org"
+    } else {
+        ""
+    };
     format!(
         "{name_check}\
          - Run `stellar registry fetch-contract-id {lookup}` yourself and make sure the name \
          and network match your expectations.\n\
          - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id} and \
          {wasm} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
-         `stellar contract fetch` for the wasm.",
+         `stellar contract fetch` for the wasm.{scaffold}",
         id = id_path.display(),
         wasm = wasm_path.display(),
     )
@@ -183,9 +188,6 @@ fn fetch_contract_id(lookup: &Prefixed, help: &str) -> Result<String, String> {
         return Err(format!(
             "contract `{lookup}` is flagged as compromised in the registry; refusing to import it."
         ));
-    }
-    if let Some(msg) = local_not_registered(&stderr, &network_name(), &lookup.to_string()) {
-        return Err(msg);
     }
     Err(format!(
         "Could not resolve a contract id for `{lookup}` on {network}. Things to try:\n\n\
