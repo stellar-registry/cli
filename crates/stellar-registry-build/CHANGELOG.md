@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/stellar-registry/cli/compare/stellar-registry-build-v0.2.0...stellar-registry-build-v0.3.0) - 2026-11-09
+
+### Added
+
+- add register_import! for testing import_contract! callers ([#77](https://github.com/stellar-registry/cli/pull/77))
+
 ## [0.2.0](https://github.com/stellar-registry/cli/compare/stellar-registry-build-v0.1.1...stellar-registry-build-v0.2.0) - 2026-10-24
 
 ### Added
