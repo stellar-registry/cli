@@ -7,6 +7,7 @@ use stellar_strkey::Contract;
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
+#[command(mut_arg("source_account", global::optional_source))]
 pub struct Cmd {
     /// Name of deployed contract. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`

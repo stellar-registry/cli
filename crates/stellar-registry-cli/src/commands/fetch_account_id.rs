@@ -5,6 +5,7 @@ use stellar_registry_build::name::{Prefixed, RegistryAccess};
 use crate::commands::global;
 
 #[derive(Parser, Debug, Clone)]
+#[command(mut_arg("source_account", global::optional_source))]
 pub struct Cmd {
     /// Name of the registered account. Can use prefix if not using verified registry.
     /// E.g. `unverified/<name>`
