@@ -190,6 +190,13 @@ fn download_from_registry(
         || "\n1. check the name & network and try again".to_string(),
         |url| format!("\n1. check that you got the name right: {url}/wasms"),
     );
+    // A local registry only has what was deployed to it.
+    let scaffold = if network == "local" {
+        "\n4. use Stellar Scaffold to achieve predictable local builds: \
+         https://stellarscaffold.org"
+    } else {
+        ""
+    };
     let local_path = local_path.display().to_string();
     Err(syn::Error::new(
         span,
@@ -201,7 +208,8 @@ fn download_from_registry(
             {name_check} \
             \n2. add this Wasm to your local `target` directory manually \
             (perhaps by compiling a contract) \
-            \n3. run `stellar registry download {lookup_name}` yourself. \
+            \n3. run `stellar registry download {lookup_name}` yourself.\
+            {scaffold} \
             \n\nSet STELLAR_NO_REGISTRY=1 to skip registry lookup.\
             \n\nstderr from `stellar registry download`:\n{stderr}"
         ),

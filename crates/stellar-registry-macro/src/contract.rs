@@ -103,16 +103,23 @@ fn wasm_is_stale(previously_cached_id: Option<&str>, address: &str, no_registry:
 /// the network has an explorer, a manual repro command, and the offline escape
 /// hatch with the exact cache paths this build expects.
 fn resolution_help(lookup: &Prefixed, id_path: &Path, wasm_path: &Path) -> String {
-    let name_check = explorer_url(&network_name())
+    let network = network_name();
+    let name_check = explorer_url(&network)
         .map(|url| format!("- Check that you got the name right: {url}/contracts\n"))
         .unwrap_or_default();
+    // A local registry only has what was deployed to it.
+    let scaffold = if network == "local" {
+        "\n- Use Stellar Scaffold to achieve predictable local builds: https://stellarscaffold.org"
+    } else {
+        ""
+    };
     format!(
         "{name_check}\
          - Run `stellar registry fetch-contract-id {lookup}` yourself and make sure the name \
          and network match your expectations.\n\
          - Set STELLAR_NO_REGISTRY=1 to prevent network calls. You will need to create {id} and \
          {wasm} yourself, perhaps using `stellar registry fetch-contract-id` for the id and \
-         `stellar contract fetch` for the wasm.",
+         `stellar contract fetch` for the wasm.{scaffold}",
         id = id_path.display(),
         wasm = wasm_path.display(),
     )
