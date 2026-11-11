@@ -4492,7 +4492,7 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "stellar-registry-macro",
 ]
@@ -4542,7 +4542,7 @@ dependencies = [
 
 [[package]]
 name = "stellar-registry-macro"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "proc-macro2",
  "quote",

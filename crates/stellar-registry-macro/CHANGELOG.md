@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/stellar-registry/cli/compare/stellar-registry-macro-v0.1.4...stellar-registry-macro-v0.1.5) - 2026-11-11
+
+### Added
+
+- suggest Stellar Scaffold when a local registry lookup fails ([#113](https://github.com/stellar-registry/cli/pull/113))
+
 ## [0.1.4](https://github.com/stellar-registry/cli/compare/stellar-registry-macro-v0.1.3...stellar-registry-macro-v0.1.4) - 2026-11-09
 
 ### Added

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/stellar-registry/cli/compare/stellar-registry-v0.1.4...stellar-registry-v0.1.5) - 2026-11-11
+
+### Other
+
+- updated the following local packages: stellar-registry-macro
+
 ## [0.1.4](https://github.com/stellar-registry/cli/compare/stellar-registry-v0.1.3...stellar-registry-v0.1.4) - 2026-11-09
 
 ### Added
