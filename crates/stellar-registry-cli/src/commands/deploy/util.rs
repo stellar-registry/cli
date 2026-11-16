@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 use std::ffi::OsString;
 
-use ed25519_dalek::SigningKey;
-
 use stellar_cli::{
     assembled::Assembled,
     commands::contract::arg_parsing,
@@ -11,7 +9,7 @@ use stellar_cli::{
     xdr::{
         HostFunction, InvokeContractArgs, InvokeHostFunctionOp, Memo, MuxedAccount, Operation,
         OperationBody, Preconditions, ScSpecEntry, ScVal, SequenceNumber, Transaction,
-        TransactionExt, Uint256, VecM,
+        TransactionExt, VecM,
     },
 };
 
@@ -58,7 +56,7 @@ pub fn build_invoke_contract_tx(
     parameters: InvokeContractArgs,
     sequence: i64,
     fee: u32,
-    key: &SigningKey,
+    source_account: MuxedAccount,
 ) -> Result<Transaction, Error> {
     let op = Operation {
         source_account: None,
@@ -68,7 +66,7 @@ pub fn build_invoke_contract_tx(
         }),
     };
     Ok(Transaction {
-        source_account: MuxedAccount::Ed25519(Uint256(key.verifying_key().to_bytes())),
+        source_account,
         fee,
         seq_num: SequenceNumber(sequence),
         cond: Preconditions::None,

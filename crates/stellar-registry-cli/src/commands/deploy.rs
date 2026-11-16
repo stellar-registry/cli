@@ -10,7 +10,7 @@ use stellar_cli::{
     config::{self, UnresolvedMuxedAccount},
     print::Print,
     utils::rpc::get_remote_wasm_from_hash,
-    xdr::{self, AccountId, InvokeContractArgs, ScSpecEntry, ScString, ScVal, Uint256},
+    xdr::{self, InvokeContractArgs, ScSpecEntry, ScString, ScVal},
 };
 use stellar_registry_build::{
     name::{Prefixed, RegistryAccess},
@@ -137,7 +137,7 @@ impl Cmd {
         let wasm_registry = self.wasm_name.registry(&self.config).await?;
         let cross_registry = target_registry.as_contract().id() != wasm_registry.as_contract().id();
         let client = self.config.rpc_client()?;
-        let key = self.config.key_pair()?;
+        let source = self.config.source_account()?;
         let config = &self.config;
 
         let contract_address = target_registry.as_contract().sc_address();
@@ -156,9 +156,7 @@ impl Cmd {
                 ScVal::String(ScString(s.try_into().unwrap()))
             }),
             ScVal::String(ScString(self.contract_name.name().try_into().unwrap())),
-            ScVal::Address(xdr::ScAddress::Account(AccountId(
-                xdr::PublicKey::PublicKeyTypeEd25519(Uint256(key.verifying_key().to_bytes())),
-            ))),
+            ScVal::Address(xdr::ScAddress::Account(source.clone().account_id())),
             args,
             deployer.map_or(ScVal::Void, |muxed_account| {
                 ScVal::Address(xdr::ScAddress::Account(muxed_account.account_id()))
@@ -184,12 +182,19 @@ impl Cmd {
         };
 
         // Get the account sequence number
-        let public_strkey =
-            stellar_strkey::ed25519::PublicKey(key.verifying_key().to_bytes()).to_string();
-        let account_details = client.get_account(&public_strkey).await?;
+        let account_details = client
+            .get_account(&source.clone().account_id().to_string())
+            .await?;
         let sequence: i64 = account_details.seq_num.into();
-        let tx = util::build_invoke_contract_tx(invoke_contract_args, sequence + 1, 100, &key)?;
-        let assembled = simulate_and_assemble_transaction(&client, &tx, None, None, None).await?;
+        let tx = util::build_invoke_contract_tx(invoke_contract_args, sequence + 1, 100, source)?;
+        let assembled = simulate_and_assemble_transaction(
+            &client,
+            &tx,
+            None,
+            None,
+            Some(rpc::AuthMode::RecordAllowNonRoot),
+        )
+        .await?;
         util::check_fee(&assembled)?;
         let mut txn = assembled.transaction().clone();
         txn = config
