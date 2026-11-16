@@ -62,7 +62,9 @@ predicates = "3.1.4"
 crate-git-revision = "0.0.9"
 
 [features]
-default = []
+default = ["additional-libs"]
+# Secure Store and Ledger keys, plus wasm-opt; stellar-cli has no narrower feature.
+additional-libs = ["stellar-cli/additional-libs"]
 integration-tests = []
 
 [lints]
