@@ -13,7 +13,7 @@ impl Upgradable for Contract {}
 
 #[contractimpl]
 impl Contract {
-    // Requiring auth lets tests deploy with a non-source admin (#118).
+    // Requiring auth lets tests deploy with a non-source admin.
     pub fn __constructor(env: &Env, admin: &Address) {
         admin.require_auth();
         Self::set_admin(env, admin);
