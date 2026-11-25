@@ -31,6 +31,7 @@ pub fn find_args_and_signers(
         &slop,
         spec_entries,
         &config::Args::default(),
+        &stellar_cli::print::Print::new(false),
     );
     match res {
         Ok((_, _, host_function_params, signers)) => {
