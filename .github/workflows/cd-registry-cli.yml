@@ -44,28 +44,35 @@ jobs:
             os: windows-2022
           - target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
+            no-default-features: true
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-22.04-arm
           - target: aarch64-unknown-linux-musl
             os: ubuntu-22.04
+            no-default-features: true
           - target: aarch64-apple-darwin
             os: macos-26
           - target: x86_64-unknown-freebsd
             os: ubuntu-22.04
+            no-default-features: true
     timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - if: runner.os == 'Linux'
-        run: sudo apt-get update
+      # Cross builds (musl, FreeBSD) skip default features: their images lack these libs.
+      - if: runner.os == 'Linux' && !matrix.no-default-features
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config libudev-dev
       - uses: taiki-e/install-action@cross
         if: contains(matrix.target, '-musl')
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: stellar-registry
           target: ${{ matrix.target }}
+          no-default-features: ${{ matrix.no-default-features || false }}
           tar: all
           zip: windows
           archive: $tag-$target
