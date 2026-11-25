@@ -315,20 +315,20 @@ mod tests {
         registry
             .registry_cli("publish")
             .arg("--wasm")
-            .arg(registry.hello_auth_wasm())
+            .arg(registry.hello_wasm_v2())
             .arg("--binver")
             .arg("0.0.1")
             .arg("--wasm-name")
-            .arg("hello_auth")
+            .arg("hello_v2_auth")
             .assert()
             .success();
 
         registry
             .registry_cli("deploy")
             .arg("--wasm-name")
-            .arg("hello_auth")
+            .arg("hello_v2_auth")
             .arg("--contract-name")
-            .arg("hello_auth_deployed")
+            .arg("hello_v2_auth_deployed")
             .arg("--auto-sign")
             .arg("--")
             .arg("--admin=bob")
