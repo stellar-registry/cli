@@ -306,7 +306,7 @@ mod tests {
     }
 
     // The constructor requires auth from an admin that isn't the source, a
-    // non-root auth entry that root-only simulation rejected (#118).
+    // non-root auth entry that root-only simulation rejected.
     #[tokio::test]
     async fn deploys_when_constructor_requires_non_source_auth() {
         let registry = RegistryTest::new().await;
