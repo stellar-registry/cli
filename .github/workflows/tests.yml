@@ -34,7 +34,7 @@ jobs:
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@nextest
       - uses: cargo-bins/cargo-binstall@main
-      - uses: stellar/stellar-cli@v28.1.0
+      - uses: stellar/stellar-cli@v30.0.1
       - uses: mozilla-actions/sccache-action@v0.0.11
 
       # Integration tests load registry.wasm + hello_v1/v2.wasm from
@@ -103,20 +103,22 @@ jobs:
       - uses: actions/checkout@v6
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@nextest
-      - uses: stellar/stellar-cli@v28.1.0
-      # Start the local network at an explicit protocol. Without one,
-      # quickstart's local network starts at the image's own default, which
-      # moves with the image and may not match the protocol under test.
+      - uses: stellar/stellar-cli@v30.0.1
+      # Start the local network through the CLI at the protocol the stellar-cli
+      # pin targets. Without an explicit protocol, quickstart's local network
+      # starts at the image's own default, which moves with the image and may
+      # not match the protocol the test contracts are built for.
       - name: Start local Stellar network
         run: |
-          # stellar-cli skipped a 29 release, so the protocol no longer tracks
-          # the stellar-cli major in Cargo.toml. Protocol 29 has no XDR changes
-          # over 28, so stellar-cli 28.1 and SDK 28 contracts run on it as is.
-          PROTOCOL_VERSION=29
           # The floating quickstart tag moves to new RPC releases, which only
           # simulate the current and previous protocol, so pin an image that
           # still simulates PROTOCOL_VERSION. Bump it alongside the protocol.
-          QUICKSTART_IMAGE_TAG=v684-b1561.1-latest
+          QUICKSTART_IMAGE_TAG=v695-b1655.1-latest
+          PROTOCOL_VERSION=$(sed -n 's/.*stellar-cli = .*version = "\([0-9]*\).*/\1/p' Cargo.toml | head -1)
+          if [ -z "$PROTOCOL_VERSION" ]; then
+            echo "Could not derive protocol version from stellar-cli pin in Cargo.toml" >&2
+            exit 1
+          fi
           echo "Starting local network at protocol $PROTOCOL_VERSION with quickstart $QUICKSTART_IMAGE_TAG"
           stellar container start local --protocol-version "$PROTOCOL_VERSION" --image-tag-override "$QUICKSTART_IMAGE_TAG"
           echo "Waiting for RPC + friendbot to become healthy..."
