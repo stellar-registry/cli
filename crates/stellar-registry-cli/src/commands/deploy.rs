@@ -305,6 +305,37 @@ mod tests {
             .success();
     }
 
+    // The constructor requires auth from an admin that isn't the source, a
+    // non-root auth entry that root-only simulation rejected (#118).
+    #[tokio::test]
+    async fn deploys_when_constructor_requires_non_source_auth() {
+        let registry = RegistryTest::new().await;
+        registry.generate_funded_identity("bob").await;
+
+        registry
+            .registry_cli("publish")
+            .arg("--wasm")
+            .arg(registry.hello_auth_wasm())
+            .arg("--binver")
+            .arg("0.0.1")
+            .arg("--wasm-name")
+            .arg("hello_auth")
+            .assert()
+            .success();
+
+        registry
+            .registry_cli("deploy")
+            .arg("--wasm-name")
+            .arg("hello_auth")
+            .arg("--contract-name")
+            .arg("hello_auth_deployed")
+            .arg("--auto-sign")
+            .arg("--")
+            .arg("--admin=bob")
+            .assert()
+            .success();
+    }
+
     // Nothing has been published under this wasm name, so the wasm lookup
     // on the subregistry must fail. Deploy should exit with a non-zero
     // status and a message on stderr rather than silently succeed.

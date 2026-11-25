@@ -207,6 +207,10 @@ impl RegistryTest {
         RandomizedWasm::new("hello_v2.wasm").randomize(&self.env.cwd)
     }
 
+    pub fn hello_auth_wasm(&self) -> PathBuf {
+        RandomizedWasm::new("hello_auth.wasm").randomize(&self.env.cwd)
+    }
+
     /// Deploy a fresh, unmanaged registry instance and register it under
     /// `name` in the root registry so it can be addressed via `name/…`
     /// prefixes. Returns the new subregistry's contract id.
